@@ -1,8 +1,12 @@
 import "dotenv/config";
+import http from "http";
 import express from "express";
 import cors from "cors";
 import connectDB from "./config/db.js";
 import UserRoutes from "./src/users/user.routes.js";
+import AuthRoutes from "./src/auth/auth.routes.js";
+import WhatsappRoutes from "./src/whatsapp/whatsapp.routes.js";
+import createSocketServer from "./src/realtime/socket.js";
 
 const app = express();
 
@@ -22,14 +26,22 @@ app.get("/health", (_req, res) => {
 
 // mount routes from src/* when ready
 app.use("/api/users", UserRoutes);
+app.use("/api/auth", AuthRoutes);
+app.use("/api/whatsapp", WhatsappRoutes);
 
 const PORT = process.env.PORT || 4000;
+const server = http.createServer(app);
+
+console.log("Creating HTTP server...");
+const io = createSocketServer(server);
+console.log("Socket.IO server attached to HTTP server");
 
 async function start() {
   try {
     await connectDB();
-    app.listen(PORT, () => {
+    server.listen(PORT, () => {
       console.log(`[server] listening on http://localhost:${PORT}`);
+      console.log(`[server] Socket.IO server ready on port ${PORT}`);
     });
   } catch (error) {
     console.error("[server] failed to start:", error);

@@ -6,35 +6,37 @@ const refreshTokenSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      index: true,
+    },
+    tokenId: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
     },
     deviceId: {
       type: String,
-      required: true,
     },
     userAgent: {
       type: String,
-      required: true,
     },
     ipAddress: {
       type: String,
-      required: true,
-    },
-    token: {
-      type: String,
-      required: true,
     },
     isActive: {
       type: Boolean,
       default: true,
+      index: true,
     },
     expiresAt: {
       type: Date,
       required: true,
+      index: true,
     },
   },
   { timestamps: true }
 );
 
-const refreshTokenModel = model("RefreshToken", refreshTokenSchema);
+const RefreshToken = model("RefreshToken", refreshTokenSchema);
 
-export default refreshTokenModel;
+export default RefreshToken;

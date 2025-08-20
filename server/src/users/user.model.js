@@ -24,7 +24,7 @@ const userSchema = new Schema(
     },
     plan: {
       type: String,
-      enum: ["free", "premium", "enterprise", "admin"],
+      enum: ["free", "standard", "premium", "enterprise", "admin"],
       default: "free",
     },
     isActive: {
