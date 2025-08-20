@@ -224,22 +224,37 @@ export async function startWhatsappSession({ userId, socket }) {
         }
 
         if (statusCode === 401) {
-          console.log("🔐 401 — unauthorized; keep doc, mark disconnected");
+          console.log(
+            "🔐 401 — unauthorized; resetting session for re-pairing"
+          );
+
+          // Clear old creds so Baileys will force QR generation next time
           await WhatsappSession.updateOne(
             { userId },
             {
               $set: {
-                status: "disconnected",
+                sessionCreds: null,
+                sessionKeys: {},
+                status: "pairing", // so frontend knows to show QR
                 errorReason: "unauthorized",
-                isActive: false,
+                isActive: true, // still active, just needs re-pair
+                lastConnected: new Date(),
               },
             }
           );
-          socket.emit("whatsapp-session-update", { status: "unauthorized" });
+
+          // Tell frontend to expect QR again
+          socket.emit("whatsapp-session-update", {
+            status: "pairing",
+            errorReason: "unauthorized",
+          });
+
+          // Clean up from active sessions so next start will reload properly
           activeSessions.delete(userId);
+
+          startWhatsappSession({ userId, socket });
           return;
         }
-
         const isLoggedOut = statusCode === DisconnectReason.loggedOut;
         await WhatsappSession.updateOne(
           { userId },
