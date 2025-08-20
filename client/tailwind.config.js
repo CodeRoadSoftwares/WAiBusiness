@@ -41,7 +41,7 @@ export default {
               dark: "#202C33",
             },
             chat: {
-              light: "#EFEAE2",
+              light: "#FCF5EB",
               dark: "#0B141A",
             },
           },
@@ -83,7 +83,10 @@ export default {
       },
       borderRadius: {
         // Default rounded chat bubble radius
-        wa: "18px",
+        wa: "30px",
+      },
+      padding: {
+        wa: "36px",
       },
     },
   },
