@@ -8,12 +8,11 @@ const whatsappSessionSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      unique: true,
       index: true,
     },
-    sessionData: {
-      type: Object,
-      required: true,
-    },
+    sessionCreds: { type: Object, default: null },
+    sessionKeys: { type: Object, default: {} },
     phoneNumber: {
       type: String,
       index: true,

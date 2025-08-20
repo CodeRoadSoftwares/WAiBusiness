@@ -3,112 +3,22 @@ import {
   DisconnectReason,
   initAuthCreds,
   BufferJSON,
+  fetchLatestBaileysVersion,
 } from "baileys";
 import WhatsappSession from "../whatsappsessions.model.js";
 import QRCode from "qrcode";
+import P from "pino";
 
-// In-memory registry of active sessions
 const activeSessions = new Map();
+const logger = P({ level: "warn" });
 
-// Stable WhatsApp Web version (DO NOT use fetchLatestBaileysVersion)
-// This is compatible with baileys v6+ and avoids 515 errors
-const WA_VERSION = [2, 3000, 1023223821];
+// -------- helpers --------
 
-// MongoDB-backed auth state
-async function getMongoAuthState(userId) {
-  console.log("🔍 Loading auth state for user:", userId);
-
-  // ✅ Load ANY session for this user (even disconnected), latest first
-  let doc = await WhatsappSession.findOne({ userId })
-    .sort({ lastConnected: -1 })
-    .lean();
-
-  // Only create new if NO session exists
-  if (!doc) {
-    console.log("📝 Creating new pairing session in DB");
-    doc = await WhatsappSession.create({
-      userId,
-      sessionData: { creds: initAuthCreds(), keys: {} },
-      status: "pairing",
-      isActive: false,
-    });
-  }
-
-  let creds;
-  const hasValidCreds =
-    doc.sessionData?.creds && Object.keys(doc.sessionData.creds).length > 0;
-
-  if (hasValidCreds) {
-    console.log("✅ Loading existing creds from DB");
-    creds = JSON.parse(
-      JSON.stringify(doc.sessionData.creds),
-      BufferJSON.reviver
-    );
-  } else {
-    console.log("🆕 Initializing fresh creds");
-    creds = initAuthCreds();
-  }
-
-  let keys = doc.sessionData.keys || {};
-
-  const persist = async ({ creds: saveCreds, keys: saveKeys }) => {
-    try {
-      const update = {};
-
-      if (saveCreds) {
-        // ✅ CORRECT: Use JSON.stringify with BufferJSON.replacer
-        update["sessionData.creds"] = JSON.parse(
-          JSON.stringify(creds, BufferJSON.replacer)
-        );
-      }
-
-      if (saveKeys) {
-        for (const [cat, ids] of Object.entries(saveKeys)) {
-          for (const [id, value] of Object.entries(ids)) {
-            // ✅ CORRECT: Serialize each value with replacer
-            update[`sessionData.keys.${cat}.${id}`] = JSON.parse(
-              JSON.stringify(value, BufferJSON.replacer)
-            );
-          }
-        }
-      }
-
-      if (Object.keys(update).length) {
-        await WhatsappSession.updateOne({ userId }, { $set: update });
-      }
-    } catch (err) {
-      console.error("❌ Failed to persist auth state:", err.message);
-    }
-  };
-
-  const state = {
-    creds,
-    keys: {
-      get: (type, ids) => {
-        const data = {};
-        ids.forEach((id) => (data[id] = keys[type]?.[id]));
-        return data;
-      },
-      set: async (data) => {
-        for (const [type, typeData] of Object.entries(data)) {
-          keys[type] = { ...(keys[type] || {}), ...typeData };
-        }
-        await persist({ keys: data });
-      },
-      clear: async () => {
-        keys = {};
-        await persist({ keys: true });
-      },
-    },
-  };
-
-  return {
-    state,
-    saveCreds: () => persist({ creds: true }),
-  };
+// Avoid showing QR again once we are registered
+function shouldShowQR(creds) {
+  return !creds?.registered;
 }
 
-// Convert QR string to base64 PNG
 async function convertQRToBase64(qrString) {
   try {
     const qrDataURL = await QRCode.toDataURL(qrString, {
@@ -117,66 +27,152 @@ async function convertQRToBase64(qrString) {
       quality: 0.92,
       margin: 1,
     });
-    const base64Data = qrDataURL.split(",")[1];
-    return base64Data;
+    return qrDataURL.split(",")[1];
   } catch (error) {
     console.error("❌ QR generation failed:", error.message);
     return null;
   }
 }
 
-/**
- * Start WhatsApp session for a user
- */
-export async function startWhatsappSession({ userId, socket }) {
-  try {
-    // Stop any existing session
-    if (activeSessions.has(userId)) {
-      console.log("⚠️ Active session found, stopping before restart...");
-      await stopWhatsappSession(userId);
+// -------- Mongo-backed auth state --------
+async function getMongoAuthState(userId) {
+  console.log("🔍 Loading auth state for user:", userId);
+
+  // ensure a single doc per user; create one if missing
+  let doc = await WhatsappSession.findOneAndUpdate(
+    { userId },
+    {
+      $setOnInsert: {
+        sessionCreds: JSON.parse(
+          JSON.stringify(initAuthCreds(), BufferJSON.replacer)
+        ),
+        sessionKeys: JSON.parse(JSON.stringify({}, BufferJSON.replacer)),
+        status: "pairing",
+        isActive: false,
+        lastConnected: new Date(),
+      },
+    },
+    { new: true, upsert: true }
+  );
+
+  // ✅ revive Buffers correctly
+  let creds = JSON.parse(
+    JSON.stringify(doc.sessionCreds || initAuthCreds()),
+    BufferJSON.reviver
+  );
+  let keys = JSON.parse(
+    JSON.stringify(doc.sessionKeys || {}),
+    BufferJSON.reviver
+  );
+
+  console.log("✅ Loaded sessionCreds from DB");
+  console.log("📱 registered:", !!creds.registered);
+
+  const persist = async ({ saveCreds, saveKeys }) => {
+    const update = {};
+
+    if (saveCreds) {
+      update.sessionCreds = JSON.parse(
+        JSON.stringify(creds, BufferJSON.replacer)
+      );
+    }
+    if (saveKeys) {
+      update.sessionKeys = JSON.parse(
+        JSON.stringify(keys, BufferJSON.replacer)
+      );
     }
 
-    console.log("🚀 Starting WhatsApp session for user:", userId);
+    if (Object.keys(update).length) {
+      await WhatsappSession.updateOne({ userId }, { $set: update });
+      console.log("💾 Updated session in DB");
+    }
+  };
+
+  const state = {
+    creds,
+    keys: {
+      get: (type, ids) => {
+        const data = {};
+        for (const id of ids) data[id] = keys?.[type]?.[id];
+        return data;
+      },
+      set: async (data) => {
+        for (const [type, typeData] of Object.entries(data)) {
+          if (!keys[type]) keys[type] = {};
+          Object.assign(keys[type], typeData);
+        }
+        await persist({ saveKeys: true });
+      },
+      clear: async () => {
+        keys = {};
+        await persist({ saveKeys: true });
+      },
+    },
+  };
+
+  const saveCreds = async () => {
+    await persist({ saveCreds: true });
+  };
+
+  return { state, saveCreds };
+}
+
+// -------- lifecycle --------
+export async function startWhatsappSession({ userId, socket }) {
+  try {
+    if (activeSessions.has(userId)) {
+      try {
+        activeSessions.get(userId).end(new Error("restarting"));
+      } catch {}
+      activeSessions.delete(userId);
+    }
+
+    const { version } = await fetchLatestBaileysVersion();
+    console.log("🚀 Starting WhatsApp session for user:", userId, "v", version);
 
     const { state, saveCreds } = await getMongoAuthState(userId);
 
+    let isSavingCreds = false;
+
     const sock = makeWASocket({
-      version: WA_VERSION,
+      version,
       auth: state,
-      browser: ["Chrome (Linux)", "Chrome", "110.0.5481.77"], // Desktop-like
-      syncFullHistory: true, // Enable for desktop mode
-      markOnlineOnConnect: true,
+      browser: ["Chrome (Linux)", "Chrome", "110.0.5481.77"],
+      syncFullHistory: false,
+      markOnlineOnConnect: false,
       connectTimeoutMs: 60_000,
       defaultQueryTimeoutMs: 30_000,
       keepAliveIntervalMs: 30_000,
-      getMessage: async (key) => {
-        // Not storing messages yet — return null
-        return null;
-      },
+      logger,
+      getMessage: async () => null,
+      shouldIgnoreJid: () => false,
     });
 
-    // Store before event handlers
     activeSessions.set(userId, sock);
 
-    // Handle credential updates
     sock.ev.on("creds.update", async (update) => {
+      console.log("🔐 creds.update:", Object.keys(update));
       Object.assign(state.creds, update);
 
-      // ✅ CRITICAL: Mark as registered after pairing
-      if (update.me) {
+      if (update.me || state.creds?.me) {
         state.creds.registered = true;
-        console.log("✅ Session marked as registered");
+        console.log("🎉 Registration completed for:", state.creds.me);
       }
 
+      isSavingCreds = true;
       await saveCreds();
+      isSavingCreds = false;
+      console.log(
+        "✅ saveCreds() completed (registered:",
+        !!state.creds.registered,
+        ")"
+      );
     });
 
-    // Connection events
     sock.ev.on("connection.update", async (update) => {
       const { connection, lastDisconnect, qr } = update;
 
-      // QR Code
-      if (qr) {
+      if (qr && shouldShowQR(state.creds)) {
         console.log("📱 QR code generated, sending to frontend...");
         const qrBase64 = await convertQRToBase64(qr);
         socket.emit("whatsapp-session-update", {
@@ -185,7 +181,6 @@ export async function startWhatsappSession({ userId, socket }) {
         });
       }
 
-      // Connected
       if (connection === "open") {
         const me = sock.user;
         const phoneNumber = me?.id?.split(":")?.[0];
@@ -203,56 +198,59 @@ export async function startWhatsappSession({ userId, socket }) {
           }
         );
 
-        console.log(`🟢 WhatsApp connected for user ${userId}: ${phoneNumber}`);
+        console.log(`🟢 Connected for user ${userId}: ${phoneNumber}`);
         socket.emit("whatsapp-session-update", {
           status: "connected",
           phoneNumber,
         });
       }
 
-      // Disconnected
       if (connection === "close") {
         const statusCode = lastDisconnect?.error?.output?.statusCode;
-        console.log(`🔴 Connection closed [${statusCode}] for user ${userId}`);
+        console.log(`🔴 Closed [${statusCode}] for user ${userId}`);
 
-        // Handle restart (after QR scan)
-        if (statusCode === DisconnectReason.restartRequired) {
-          console.log("🔁 Restart required — reconnecting...");
-          setTimeout(() => {
-            startWhatsappSession({ userId, socket }).catch(console.error);
-          }, 3000);
+        if (
+          statusCode === DisconnectReason.restartRequired ||
+          statusCode === 515
+        ) {
+          console.log("🔁 Restart required — reusing existing creds");
+          let tries = 0;
+          while (isSavingCreds && tries < 50) {
+            await new Promise((r) => setTimeout(r, 100));
+            tries++;
+          }
+          setTimeout(() => startWhatsappSession({ userId, socket }), 500);
           return;
         }
 
-        // 👇 DO NOT CLEAR CREDS ON 515!
-        if (statusCode === 515) {
-          console.log(
-            "🧨 515 error — DO NOT CLEAR CREDS, let restart reuse them"
-          );
-
+        if (statusCode === 401) {
+          console.log("🔐 401 — unauthorized; keep doc, mark disconnected");
           await WhatsappSession.updateOne(
             { userId },
             {
               $set: {
-                status: "error",
-                errorReason: "515 bad-session",
+                status: "disconnected",
+                errorReason: "unauthorized",
                 isActive: false,
               },
             }
           );
-        } else {
-          const isLoggedOut = statusCode === DisconnectReason.loggedOut;
-          await WhatsappSession.updateOne(
-            { userId },
-            {
-              $set: {
-                status: isLoggedOut ? "disconnected" : "error",
-                errorReason: String(statusCode || "unknown"),
-                isActive: false,
-              },
-            }
-          );
+          socket.emit("whatsapp-session-update", { status: "unauthorized" });
+          activeSessions.delete(userId);
+          return;
         }
+
+        const isLoggedOut = statusCode === DisconnectReason.loggedOut;
+        await WhatsappSession.updateOne(
+          { userId },
+          {
+            $set: {
+              status: isLoggedOut ? "disconnected" : "error",
+              errorReason: String(statusCode || "unknown"),
+              isActive: false,
+            },
+          }
+        );
 
         socket.emit("whatsapp-session-update", {
           status: "disconnected",
@@ -263,30 +261,29 @@ export async function startWhatsappSession({ userId, socket }) {
       }
     });
 
-    // Error events (non-fatal)
     sock.ev.on("error", (err) => {
-      console.error("⚠️ Socket error:", err.message);
+      console.error("⚠️ Socket error:", err?.message || err);
     });
   } catch (error) {
-    console.error("❌ Failed to start WhatsApp session:", error.message);
-    socket.emit("whatsapp-session-update", {
-      status: "error",
-      error: error.message,
-    });
+    console.error("❌ Failed to start session:", error?.message || error);
+    try {
+      socket.emit("whatsapp-session-update", {
+        status: "error",
+        error: String(error?.message || error),
+      });
+    } catch {}
   }
 }
 
-/**
- * Stop WhatsApp session
- */
+// Explicit user stop (logout)
 export async function stopWhatsappSession(userId) {
   const sock = activeSessions.get(userId);
   if (sock) {
     try {
-      await sock.logout(); // Proper logout
-      console.log("🚪 Logged out WhatsApp session for user:", userId);
+      await sock.logout();
+      console.log("🚪 Logged out for user:", userId);
     } catch (e) {
-      console.warn("⚠️ Error during logout:", e.message);
+      console.warn("⚠️ Logout error:", e?.message || e);
     }
     activeSessions.delete(userId);
   }
@@ -297,15 +294,14 @@ export async function stopWhatsappSession(userId) {
       $set: {
         status: "disconnected",
         errorReason: "user_disconnected",
+        sessionCreds: null,
+        sessionKeys: {},
         isActive: false,
       },
     }
   );
 }
 
-/**
- * Get session status
- */
 export function getWhatsappSessionStatus(userId) {
   return {
     isActive: activeSessions.has(userId),
