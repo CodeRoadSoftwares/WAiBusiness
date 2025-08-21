@@ -33,6 +33,7 @@ function LinkDevice() {
       ? socketStatus
       : data?.status || "disconnected";
   const currentPhoneNumber = socketPhoneNumber || data?.phoneNumber;
+  const currentName = data?.name;
   const currentError = socketError;
 
   // Auto-connect socket when component mounts
@@ -159,36 +160,40 @@ function LinkDevice() {
               <Div size="2xl" className="w-1/2">
                 <div className="text-gray-700 flex items-center gap-4">
                   <div className="bg-wa-brand/10 p-4 rounded-full">
-                    <FaPhone size={24} className="text-wa-brand" />
+                    <FaPhone size={36} className="text-wa-brand" />
                   </div>
                   <div className="flex flex-col">
-                    <span>Phone Number</span>
+                    <span>Account</span>
                     <span className="text-xl font-semibold">
                       {currentPhoneNumber}
                     </span>
+                    <span className="font-semibold">{currentName}</span>
                   </div>
                 </div>
               </Div>
               <Div size="2xl" className="w-1/2">
                 <div className="text-gray-700 flex items-center gap-4">
                   <div className="bg-wa-brand/10 p-4 rounded-full">
-                    <FaClock size={24} className="text-wa-brand" />
+                    <FaClock size={36} className="text-wa-brand" />
                   </div>
                   <div className="flex flex-col">
                     <span>Connected On</span>
                     <span className="text-xl font-semibold">
                       {data?.lastConnected
-                        ? new Date(data.lastConnected)
-                            .toLocaleString("en-US", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                              hour12: true,
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                            })
-                            .replace(",", "")
-                            .replace(/(\d{2}:\d{2} [AP]M)/, "$1,")
+                        ? new Date(data.lastConnected).toLocaleString("en-US", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })
+                        : ""}
+                    </span>
+                    <span className="font-semibold">
+                      {data?.lastConnected
+                        ? new Date(data.lastConnected).toLocaleString("en-US", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: true,
+                          })
                         : ""}
                     </span>
                   </div>

@@ -15,6 +15,7 @@ router.get("/status", requireAuth, async (req, res) => {
     return res.json({
       status: session.status,
       phoneNumber: session.phoneNumber,
+      name: session.sessionCreds?.me?.name,
       lastConnected: session.lastConnected,
       isActive: session.isActive,
     });
