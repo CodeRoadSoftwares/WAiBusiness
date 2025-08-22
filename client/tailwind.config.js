@@ -88,6 +88,19 @@ export default {
       padding: {
         wa: "36px",
       },
+      keyframes: {
+        spinPulse: {
+          "0%": { transform: "rotate(0deg)" },
+          "25%": { transform: "rotate(360deg)" },
+          "50%": { transform: "rotate(720deg)" },
+          "75%": { transform: "rotate(1080deg)" },
+          "100%": { transform: "rotate(1440deg)" },
+        },
+      },
+      animation: {
+        "spin-pulse":
+          "spinPulse 3s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite",
+      },
     },
   },
   plugins: [],
