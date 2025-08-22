@@ -1,9 +1,9 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
-import { baseQuery } from "../../../shared/services/baseQuery";
+import { customBaseQuery } from "../../../shared/services/baseQuery";
 
 export const usersApi = createApi({
   reducerPath: "usersApi",
-  baseQuery,
+  baseQuery: customBaseQuery,
   endpoints: (builder) => ({
     register: builder.mutation({
       query: (credentials) => ({

@@ -10,6 +10,37 @@ const baseQuery = fetchBaseQuery({
   },
 });
 
+// Custom base query that handles token refresh detection
+const customBaseQuery = async (args, api, extraOptions) => {
+  try {
+    console.log("🚀 Making API request:", args.url);
+
+    // First, make the original request
+    const result = await baseQuery(args, api, extraOptions);
+
+    // Check if tokens were refreshed during this request
+    const tokensRefreshed =
+      result.meta?.response?.headers?.get("X-Tokens-Refreshed");
+
+    if (tokensRefreshed === "true") {
+      console.log("🔄 Tokens were refreshed for request:", args.url);
+      console.log("🔄 Updating auth status...");
+
+      // Invalidate and refetch auth status to update the frontend state
+      // This will trigger a re-fetch of the current user's authentication status
+      api.dispatch(api.util.invalidateTags(["Auth"]));
+    } else {
+      console.log("✅ No token refresh detected for request:", args.url);
+    }
+
+    return result;
+  } catch (error) {
+    console.error("❌ Custom base query error for request:", args.url, error);
+    // Re-throw the error so RTK Query can handle it
+    throw error;
+  }
+};
+
 // Helper functions to keep the code clean
 function clearAuthData() {
   document.cookie =
@@ -29,4 +60,4 @@ function redirectToLogin() {
   }
 }
 
-export { baseQuery, clearAuthData, redirectToLogin };
+export { baseQuery, customBaseQuery, clearAuthData, redirectToLogin };
