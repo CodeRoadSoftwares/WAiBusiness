@@ -9,7 +9,7 @@ function Layout({ children }) {
       <div className="flex h-[calc(100vh-56px)]">
         <Sidebar />
         <main className="flex-1 bg-wa-bg-chat-light dark:bg-wa-bg-chat-dark overflow-y-auto">
-          <div className="mx-auto max-w-full p-4 md:px-6 lg:px-8">
+          <div className="mx-auto max-w-full md:px-6 lg:px-8">
             {children}
           </div>
         </main>

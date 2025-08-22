@@ -8,12 +8,23 @@ import AuthGuard from "./features/auth/components/AuthGuard";
 import Main from "./shared/components/layout/Main";
 import NotFound from "./NotFound";
 import LinkDevice from "./features/link-device/LinkDevice";
+import CreateCampaign from "./features/campaign/CreateCampaign";
 
 function App() {
   return (
     <StoreProvider>
       <Router>
         <Routes>
+          <Route
+            path="/"
+            element={
+              <AuthGuard mode="private">
+                <Main withLayout={false}>
+                  <Dashboard />
+                </Main>
+              </AuthGuard>
+            }
+          />
           <Route
             path="/register"
             element={
@@ -50,6 +61,17 @@ function App() {
               <AuthGuard mode="private">
                 <Main>
                   <LinkDevice />
+                </Main>
+              </AuthGuard>
+            }
+          />
+
+          <Route
+            path="/create-campaign"
+            element={
+              <AuthGuard mode="private">
+                <Main>
+                  <CreateCampaign />
                 </Main>
               </AuthGuard>
             }

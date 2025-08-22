@@ -107,8 +107,8 @@ function Sidebar() {
               [
                 linkBase,
                 isActive
-                  ? "bg-wa-brand/60 text-black "
-                  : "text-wa-text-secondary-light dark:text-wa-text-secondary-dark hover:bg-wa-brand/25 hover:text-wa-text-primary-light dark:hover:text-wa-text-primary-dark",
+                  ? "bg-wa-brand/25 text-black "
+                  : "text-wa-text-secondary-light dark:text-wa-text-secondary-dark hover:bg-gray-100 hover:text-wa-text-primary-light dark:hover:text-wa-text-primary-dark",
               ].join(" ")
             }
           >

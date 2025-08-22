@@ -1,6 +1,7 @@
 import express from "express";
 import { requireAuth } from "../middlewares/auth.middleware.js";
 import WhatsappController from "./whatsapp.controller.js";
+import { CampaignController } from "./campaigns/campaign.controller.js";
 
 const router = express.Router();
 
@@ -43,5 +44,12 @@ router.delete("/session", requireAuth, async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 });
+
+// CAMPAIGN ROUTES
+router.post(
+  "/campaigns/create",
+  requireAuth,
+  CampaignController.createCampaign
+);
 
 export default router;
