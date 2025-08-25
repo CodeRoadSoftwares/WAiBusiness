@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Users,
   Upload,
@@ -25,6 +25,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import AlertDialogComponent from "@/components/ui/AlertDialog";
 import Spinner from "@/shared/components/Spinner";
 import * as XLSX from "xlsx";
+import { useGetAudienceQuery } from "@/features/audience/api/audienceApi";
+import longAgo from "@/shared/utils/longAgo";
 
 const AudienceSection = ({ formData, onFormChange }) => {
   // Error dialog state
@@ -37,6 +39,29 @@ const AudienceSection = ({ formData, onFormChange }) => {
   // Loading state for file processing
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // Search state for existing audiences
+  const [audienceSearch, setAudienceSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(audienceSearch);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [audienceSearch]);
+
+  // Get audiences from API
+  const {
+    data: audienceData,
+    isLoading: isLoadingAudiences,
+    error: audienceError,
+  } = useGetAudienceQuery({
+    search: debouncedSearch,
+    limit: 50,
+  });
+
   const showError = (title, description) => {
     setErrorDialog({
       isOpen: true,
@@ -48,6 +73,17 @@ const AudienceSection = ({ formData, onFormChange }) => {
   const handleAudienceTypeChange = (value) => {
     console.log("Audience type changed to:", value);
     onFormChange("audienceType", value);
+
+    // Clear audience-related data when switching types
+    if (value === "upload") {
+      onFormChange("existingAudienceId", "");
+      onFormChange("audienceContactCount", 0);
+    } else if (value === "existing") {
+      onFormChange("audienceFile", null);
+      onFormChange("audienceHeaders", []);
+      onFormChange("availableMergeFields", []);
+      onFormChange("audienceSampleData", []);
+    }
   };
 
   const processFile = async (file) => {
@@ -202,15 +238,25 @@ const AudienceSection = ({ formData, onFormChange }) => {
             };
           });
 
+          // Extract first row data for preview
+          const firstRowData = jsonData[1]; // First data row (index 1, after headers)
+          const sampleData = firstRowData
+            ? firstRowData.map((cell) =>
+                cell !== null && cell !== undefined ? String(cell).trim() : ""
+              )
+            : [];
+
           console.log("Excel processed successfully:");
           console.log("- Headers:", headers);
           console.log("- Contact count:", contactCount);
           console.log("- Merge fields:", mergeFields);
+          console.log("- Sample data (first row):", sampleData);
 
           // Update form data
           onFormChange("audienceHeaders", headers);
           onFormChange("audienceContactCount", contactCount);
           onFormChange("availableMergeFields", mergeFields);
+          onFormChange("audienceSampleData", sampleData);
 
           resolve();
         } catch (error) {
@@ -291,15 +337,23 @@ const AudienceSection = ({ formData, onFormChange }) => {
       };
     });
 
+    // Extract first row data for preview
+    const firstRowData = lines[1]
+      ? lines[1].split(",").map((cell) => cell.trim().replace(/"/g, ""))
+      : [];
+    const sampleData = firstRowData.map((cell) => cell || "");
+
     console.log("CSV processed successfully:");
     console.log("- Headers:", headers);
     console.log("- Contact count:", contactCount);
     console.log("- Merge fields:", mergeFields);
+    console.log("- Sample data (first row):", sampleData);
 
     // Update form data
     onFormChange("audienceHeaders", headers);
     onFormChange("audienceContactCount", contactCount);
     onFormChange("availableMergeFields", mergeFields);
+    onFormChange("audienceSampleData", sampleData);
   };
 
   const isRequiredField = (field) => {
@@ -338,6 +392,17 @@ const AudienceSection = ({ formData, onFormChange }) => {
   const handleExistingAudienceSelection = (audienceId) => {
     console.log("Existing audience selected:", audienceId);
     onFormChange("existingAudienceId", audienceId);
+
+    // Find the selected audience and update contact count
+    if (audienceData?.audiences) {
+      const selectedAudience = audienceData.audiences.find(
+        (audience) => audience._id === audienceId
+      );
+      if (selectedAudience) {
+        onFormChange("audienceContactCount", selectedAudience.count || 0);
+        console.log("Updated contact count:", selectedAudience.count || 0);
+      }
+    }
   };
 
   const handleSaveAudienceToggle = (saveForFuture) => {
@@ -503,69 +568,51 @@ const AudienceSection = ({ formData, onFormChange }) => {
                   <Input
                     placeholder="Search audiences..."
                     className="pl-8"
+                    value={audienceSearch}
                     onChange={(e) => {
-                      // TODO: Implement search functionality
-                      console.log("Searching audiences for:", e.target.value);
+                      setAudienceSearch(e.target.value);
                     }}
                   />
                 </div>
               </div>
               <div className="max-h-[200px] overflow-y-auto">
-                {/* Audience options will be dynamically inserted here */}
-                <SelectItem value="audience1">
-                  <div className="flex flex-col">
-                    <span className="font-medium">VIP Customers</span>
-                    <span className="text-xs text-muted-foreground">
-                      1,250 contacts • Last used 2 days ago
+                {isLoadingAudiences ? (
+                  <div className="flex items-center justify-center p-4">
+                    <Spinner size={20} theme="brand" />
+                    <span className="ml-2 text-sm text-gray-500">
+                      Loading...
                     </span>
                   </div>
-                </SelectItem>
-                <SelectItem value="audience2">
-                  <div className="flex flex-col">
-                    <span className="font-medium">Newsletter Subscribers</span>
-                    <span className="text-xs text-muted-foreground">
-                      5,420 contacts • Last used 1 week ago
-                    </span>
+                ) : audienceError ? (
+                  <div className="p-4 text-center text-sm text-red-500">
+                    Failed to load audiences
                   </div>
-                </SelectItem>
-                <SelectItem value="audience3">
-                  <div className="flex flex-col">
-                    <span className="font-medium">Recent Purchasers</span>
-                    <span className="text-xs text-muted-foreground">
-                      890 contacts • Last used 3 days ago
-                    </span>
+                ) : audienceData?.audiences?.length === 0 ? (
+                  <div className="p-4 text-center text-sm text-gray-500">
+                    {audienceSearch
+                      ? "No audiences found matching your search"
+                      : "No audiences available"}
                   </div>
-                </SelectItem>
-                <SelectItem value="audience4">
-                  <div className="flex flex-col">
-                    <span className="font-medium">Abandoned Cart Users</span>
-                    <span className="text-xs text-muted-foreground">
-                      2,100 contacts • Last used 5 days ago
-                    </span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="audience5">
-                  <div className="flex flex-col">
-                    <span className="font-medium">New Sign-ups</span>
-                    <span className="text-xs text-muted-foreground">
-                      750 contacts • Last used 1 day ago
-                    </span>
-                  </div>
-                </SelectItem>
+                ) : (
+                  audienceData?.audiences?.map((audience) => (
+                    <SelectItem key={audience._id} value={audience._id}>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{audience.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {audience.count || 0} contacts • Last used{" "}
+                          {audience.lastUsed
+                            ? longAgo(audience.lastUsed)
+                            : "Never"}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))
+                )}
               </div>
             </SelectContent>
           </Select>
         </div>
       </div>
-
-      {/* Show selected audience info */}
-      {formData.existingAudienceId && (
-        <div className="bg-wa-brand/5 dark:bg-wa-brand/10 p-3 rounded-lg border border-wa-brand/20">
-          <p className="text-sm text-wa-text-primary-light dark:text-wa-text-primary-dark">
-            Audience selected. You can preview and edit contacts before sending.
-          </p>
-        </div>
-      )}
     </div>
   );
 
@@ -660,6 +707,20 @@ const AudienceSection = ({ formData, onFormChange }) => {
       {/* Dynamic Content Based on Audience Type */}
       {formData.audienceType &&
         renderAudienceContentByType(formData.audienceType)}
+
+      {/* Audience Loading Error */}
+      {audienceError && formData.audienceType === "existing" && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <h4 className="text-sm font-medium text-red-800 dark:text-red-200 mb-2">
+            Failed to load audiences
+          </h4>
+          <p className="text-sm text-red-700 dark:text-red-300">
+            {audienceError?.data?.message ||
+              audienceError?.error ||
+              "Please try refreshing the page"}
+          </p>
+        </div>
+      )}
 
       {/* Error Dialog */}
       <AlertDialogComponent

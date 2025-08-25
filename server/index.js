@@ -2,11 +2,17 @@ import "dotenv/config";
 import http from "http";
 import express from "express";
 import cors from "cors";
+import path from "path";
+import { fileURLToPath } from "url";
 import connectDB from "./config/db.js";
 import UserRoutes from "./src/users/user.routes.js";
 import AuthRoutes from "./src/auth/auth.routes.js";
 import WhatsappRoutes from "./src/whatsapp/whatsapp.routes.js";
+import AudienceRoutes from "./src/whatsapp/audience/audience.routes.js";
 import createSocketServer from "./src/realtime/socket.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
@@ -17,7 +23,13 @@ app.use(
     credentials: true,
   })
 );
+
+// Body parsing middleware
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Serve uploaded media files
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Health check
 app.get("/health", (_req, res) => {
@@ -27,6 +39,7 @@ app.get("/health", (_req, res) => {
 // mount routes from src/* when ready
 app.use("/api/users", UserRoutes);
 app.use("/api/auth", AuthRoutes);
+app.use("/api/audience", AudienceRoutes);
 app.use("/api/whatsapp", WhatsappRoutes);
 
 const PORT = process.env.PORT || 4000;

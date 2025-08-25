@@ -3,19 +3,28 @@ import { setupListeners } from "@reduxjs/toolkit/query";
 import { usersApi } from "../../features/users/api/usersApi";
 import { authApi } from "../../features/auth/api/authApi";
 import { whatsappSessionApi } from "../../features/link-device/api/whatsappSessionApi";
+import { campaignApi } from "../../features/campaign/api/campaignApi";
+import { audienceApi } from "../../features/audience/api/audienceApi";
+import { templateApi } from "../../features/template/api/templateApi";
 
 export const store = configureStore({
   reducer: {
     [usersApi.reducerPath]: usersApi.reducer,
     [authApi.reducerPath]: authApi.reducer,
     [whatsappSessionApi.reducerPath]: whatsappSessionApi.reducer,
+    [campaignApi.reducerPath]: campaignApi.reducer,
+    [audienceApi.reducerPath]: audienceApi.reducer,
+    [templateApi.reducerPath]: templateApi.reducer,
   },
 
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware().concat(
       usersApi.middleware,
       authApi.middleware,
-      whatsappSessionApi.middleware
+      whatsappSessionApi.middleware,
+      campaignApi.middleware,
+      audienceApi.middleware,
+      templateApi.middleware
     ),
 });
 

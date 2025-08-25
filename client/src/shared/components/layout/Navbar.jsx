@@ -1,40 +1,105 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { useLocation, Link, useNavigate } from "react-router-dom";
+import { HiHome, HiChevronRight } from "react-icons/hi";
+import { ChevronRight, House, ArrowLeft, ArrowRight } from "lucide-react";
 
 function Navbar() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Custom route labels mapping
+  const routeLabels = {
+    campaign: "Campaigns",
+    "link-device": "Link Device",
+    chats: "Conversations",
+    settings: "Settings",
+    create: "Create New",
+    edit: "Edit",
+    profile: "Profile",
+  };
+
+  // Function to generate breadcrumbs from current path
+  const generateBreadcrumbs = () => {
+    const pathnames = location.pathname.split("/").filter((x) => x);
+    const breadcrumbs = [];
+
+    let currentPath = "";
+
+    pathnames.forEach((name, index) => {
+      currentPath += `/${name}`;
+
+      // Skip dashboard route since it's already shown as home
+      if (name === "dashboard") return;
+
+      // Use custom label if available, otherwise format the route name
+      const label =
+        routeLabels[name] ||
+        name
+          .split("-")
+          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(" ");
+
+      breadcrumbs.push({
+        name: label,
+        path: currentPath,
+        isLast: index === pathnames.length - 1,
+      });
+    });
+
+    return breadcrumbs;
+  };
+
+  const breadcrumbs = generateBreadcrumbs();
+
   return (
-    <header className="h-14 shadow-waHeader bg-wa-bg-panelHeader-light dark:bg-wa-bg-panelHeader-dark sticky top-0 z-30">
-      <div className="h-full px-3 md:px-4 flex items-center justify-between">
+    <header className="h-14 bg-white sticky top-0 z-30 border-b border-gray-100">
+      <div className="h-full px-6 flex items-center justify-between">
+        {/* Left controls: nav buttons + breadcrumbs */}
         <div className="flex items-center gap-2">
-          <Link
-            to="/dashboard"
-            className="flex items-center justify-center gap-1 text-base md:text-lg font-semibold"
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all"
+            title="Go back"
           >
-            <img
-              src="/brand-logo.png"
-              alt="WAiBusiness"
-              className="w-10 h-10 mr-2"
-            />
-            WAiBusiness
-          </Link>
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-wa-brand/10 text-wa-brand">
-            beta
-          </span>
-        </div>
-        <div className="flex items-center gap-2 md:gap-3">
-          <button className="hidden md:inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-md bg-wa-bg-panel-light dark:bg-wa-bg-panel-dark border border-wa-border-light dark:border-wa-border-dark hover:border-wa-icon-dark/30">
-            <svg
-              viewBox="0 0 24 24"
-              className="w-4 h-4 text-wa-icon-light dark:text-wa-icon-dark"
-              fill="currentColor"
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate(1)}
+            className="inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all"
+            title="Go forward"
+          >
+            <ArrowRight className="w-4 h-4" />
+          </button>
+
+          <nav className="flex items-center space-x-1 ml-2">
+            <Link
+              to="/dashboard"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200 group"
             >
-              <path d="M15.5 14h-.79l-.28-.27a6.471 6.471 0 001.48-5.34C15.21 5.01 12.2 2 8.6 2S2 5.01 2 8.39c0 3.38 3.01 6.39 6.6 6.39 1.61 0 3.09-.59 4.22-1.57l.27.28v.79l4.25 4.25c.41.41 1.07.41 1.48 0 .41-.41.41-1.07 0-1.48L15.5 14zm-6.9 0C5.02 14 2 10.98 2 7.5S5.02 1 8.6 1 15.2 4.02 15.2 7.5 12.18 14 8.6 14z" />
-            </svg>
-            Search
-          </button>
-          <button className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-wa-brand text-white hover:bg-wa-brandDark">
-            U
-          </button>
+              <House className="w-4 h-4 group-hover:text-wa-brand" />
+              <span className="font-medium">Dashboard</span>
+            </Link>
+
+            {breadcrumbs.map((breadcrumb) => (
+              <div key={breadcrumb.path} className="flex items-center">
+                <ChevronRight className="w-5 h-5 text-gray-400 mx-1" />
+                {breadcrumb.isLast ? (
+                  <span className="px-3 py-1.5 rounded-lg bg-wa-brand/10 text-wa-brand font-medium cursor-default">
+                    {breadcrumb.name}
+                  </span>
+                ) : (
+                  <Link
+                    to={breadcrumb.path}
+                    className="px-3 py-1.5 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200 font-medium"
+                  >
+                    {breadcrumb.name}
+                  </Link>
+                )}
+              </div>
+            ))}
+          </nav>
         </div>
       </div>
     </header>

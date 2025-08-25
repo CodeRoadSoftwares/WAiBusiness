@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   MessageSquare,
   FileText,
@@ -10,6 +10,7 @@ import {
   FileText as TemplateIcon,
   Layers,
   MessageSquareText,
+  Trash,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -23,15 +24,53 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { useGetTemplatesQuery } from "../../template/api/templateApi";
+import longAgo from "@/shared/utils/longAgo";
+import capitalize from "@/shared/utils/capitalize";
 
 const MessageContentSection = ({
   formData,
   onFormChange,
   abTestingEnabled = false,
 }) => {
+  const [templateSearch, setTemplateSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(templateSearch);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [templateSearch]);
+
+  // Fetch templates with search
+  const { data: templatesData, isLoading: isLoadingTemplates } =
+    useGetTemplatesQuery({
+      search: debouncedSearch,
+      limit: 50,
+      skip: 0,
+    });
+
+  const templates = templatesData?.templates || [];
+
   const handleMessageTypeChange = (value) => {
     console.log("Message type changed to:", value);
     onFormChange("messageType", value);
+
+    // Clear template search when switching to template type
+    if (value === "template") {
+      clearTemplateSearch();
+    }
+  };
+
+  const handleTemplateSearchChange = (value) => {
+    setTemplateSearch(value);
+  };
+
+  const clearTemplateSearch = () => {
+    setTemplateSearch("");
   };
 
   const handleMessageContentChange = (value, variantIndex = 0) => {
@@ -54,17 +93,39 @@ const MessageContentSection = ({
   };
 
   const handleFileUpload = (file, variantIndex = 0) => {
-    console.log("File uploaded:", file, "for variant:", variantIndex);
+    console.log(
+      "handleFileUpload called with:",
+      file,
+      "for variant:",
+      variantIndex
+    );
+    console.log("abTestingEnabled:", abTestingEnabled);
+    console.log("Current formData:", formData);
+
+    // Validate file size (max 16MB for WhatsApp)
+    const maxSize = 16 * 1024 * 1024; // 16MB
+    if (file.size > maxSize) {
+      alert(
+        "File too large! WhatsApp supports files up to 16MB. Please choose a smaller file."
+      );
+      return;
+    }
+
     if (abTestingEnabled) {
+      console.log("Updating messageVariants for AB testing");
       const updatedVariants = [...(formData.messageVariants || [])];
       updatedVariants[variantIndex] = {
         ...updatedVariants[variantIndex],
         mediaFile: file,
       };
+      console.log("Updated variants:", updatedVariants);
       onFormChange("messageVariants", updatedVariants);
     } else {
+      console.log("Updating mediaFile for single message");
       onFormChange("mediaFile", file);
     }
+
+    console.log("handleFileUpload completed");
   };
 
   const handleTemplateSelection = (templateId, variantIndex = 0) => {
@@ -78,6 +139,9 @@ const MessageContentSection = ({
     } else {
       onFormChange("templateId", templateId);
     }
+
+    // Clear search after selection
+    clearTemplateSearch();
   };
 
   const renderTextMessageForm = (variantIndex = 0) => (
@@ -172,114 +236,283 @@ const MessageContentSection = ({
 
   const renderMediaMessageForm = (variantIndex = 0) => (
     <div className="space-y-4">
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-wa-text-primary-light dark:text-wa-text-primary-dark flex items-center">
-          <Upload className="w-4 h-4 mr-2 text-wa-icon-light dark:text-wa-icon-dark" />
-          File<span className="text-red-500 ml-1">*</span>
-        </label>
-        <div className="relative">
-          <input
-            type="file"
-            id={`media-upload-${variantIndex}`}
-            className="hidden"
-            accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
-            onChange={(e) => {
-              const file = e.target.files[0];
-              if (file) {
-                handleFileUpload(file, variantIndex);
-              }
-            }}
-          />
-          <label
-            htmlFor={`media-upload-${variantIndex}`}
-            className="border-2 border-dashed border-wa-border-light dark:border-wa-border-dark rounded-lg p-6 text-center hover:border-wa-brand/50 transition-colors cursor-pointer block"
-          >
+      {(() => {
+        const currentMediaFile = abTestingEnabled
+          ? formData.messageVariants?.[variantIndex]?.mediaFile
+          : formData.mediaFile;
+
+        console.log(
+          "renderMediaMessageForm - currentMediaFile:",
+          currentMediaFile
+        );
+        console.log(
+          "renderMediaMessageForm - formData.mediaFile:",
+          formData.mediaFile
+        );
+        console.log(
+          "renderMediaMessageForm - abTestingEnabled:",
+          abTestingEnabled
+        );
+
+        if (!currentMediaFile) {
+          // Show upload area only when no file is selected
+          return (
             <div className="space-y-2">
-              <Upload className="w-8 h-8 mx-auto text-wa-icon-light dark:text-wa-icon-dark" />
-              <p className="text-sm text-wa-text-secondary-light dark:text-wa-text-secondary-dark">
-                Click to upload or drag and drop
-              </p>
-              <p className="text-xs text-wa-text-secondary-light dark:text-wa-text-secondary-dark">
-                Supports: Images, Videos, Audio, Documents
-              </p>
+              <label className="text-sm font-medium text-wa-text-primary-light dark:text-wa-text-primary-dark flex items-center">
+                <Upload className="w-4 h-4 mr-2 text-wa-icon-light dark:text-wa-icon-dark" />
+                Upload Media File <span className="text-red-500 ml-1">*</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="file"
+                  id={`media-upload-${variantIndex}`}
+                  className="hidden"
+                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
+                  onChange={(e) => {
+                    console.log(
+                      "Media file input onChange triggered:",
+                      e.target.files
+                    );
+                    const file = e.target.files[0];
+                    if (file) {
+                      console.log("Media file selected:", file);
+                      handleFileUpload(file, variantIndex);
+                    } else {
+                      console.log("No media file selected");
+                    }
+                  }}
+                />
+                <label
+                  htmlFor={`media-upload-${variantIndex}`}
+                  className="border-2 border-dashed border-wa-border-light dark:border-wa-border-dark rounded-lg p-6 text-center hover:border-wa-brand/50 transition-colors cursor-pointer block"
+                >
+                  <div className="space-y-2">
+                    <Upload className="w-8 h-8 mx-auto text-wa-icon-light dark:text-wa-icon-dark" />
+                    <p className="text-sm text-wa-text-secondary-light dark:text-wa-text-secondary-dark">
+                      Click to upload or drag and drop
+                    </p>
+                    <p className="text-xs text-wa-text-secondary-light dark:text-wa-text-secondary-dark">
+                      Supports: Images, Videos, Audio, Documents
+                    </p>
+                  </div>
+                </label>
+              </div>
             </div>
-          </label>
-        </div>
-        {/* Show selected file if any */}
-        {((abTestingEnabled &&
-          formData.messageVariants?.[variantIndex]?.mediaFile) ||
-          (!abTestingEnabled && formData.mediaFile)) && (
-          <div className="bg-wa-brand/5 dark:bg-wa-brand/10 p-3 rounded-lg border border-wa-brand/20">
-            <p className="text-sm text-wa-text-primary-light dark:text-wa-text-primary-dark">
-              Selected:{" "}
-              {abTestingEnabled
-                ? formData.messageVariants?.[variantIndex]?.mediaFile?.name
-                : formData.mediaFile?.name}
-            </p>
-          </div>
-        )}
-      </div>
+          );
+        } else {
+          // Show file details and remove button when file is selected
+          return (
+            <div className="space-y-4">
+              <div className="bg-wa-brand/5 dark:bg-wa-brand/10 p-4 rounded-lg border border-wa-brand/20">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center space-x-3">
+                    <Image className="w-5 h-5 text-wa-brand" />
+                    <div>
+                      <h4 className="font-medium text-sm text-wa-text-primary-light dark:text-wa-text-primary-dark">
+                        {currentMediaFile.name}
+                      </h4>
+                      <p className="text-xs text-wa-text-secondary-light dark:text-wa-text-secondary-dark">
+                        {(currentMediaFile.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      if (abTestingEnabled) {
+                        const updatedVariants = [
+                          ...(formData.messageVariants || []),
+                        ];
+                        updatedVariants[variantIndex] = {
+                          ...updatedVariants[variantIndex],
+                          mediaFile: null,
+                        };
+                        onFormChange("messageVariants", updatedVariants);
+                      } else {
+                        onFormChange("mediaFile", null);
+                      }
+                    }}
+                    className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  >
+                    <Trash className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          );
+        }
+      })()}
     </div>
   );
 
-  const renderTemplateMessageForm = (variantIndex = 0) => (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-wa-text-primary-light dark:text-wa-text-primary-dark flex items-center">
-          <FileText className="w-4 h-4 mr-2 text-wa-icon-light dark:text-wa-icon-dark" />
-          Select Template <span className="text-red-500 ml-1">*</span>
-        </label>
-        <div className="space-y-3">
-          {/* Template Selection with Search */}
-          <Select
-            value={
-              abTestingEnabled
-                ? formData.messageVariants?.[variantIndex]?.templateId || ""
-                : formData.templateId || ""
-            }
-            onValueChange={(value) =>
-              handleTemplateSelection(value, variantIndex)
-            }
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Search and select a template" />
-            </SelectTrigger>
-            <SelectContent>
-              <div className="p-2">
-                <div className="relative">
-                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search templates..."
-                    className="pl-8"
-                    onChange={(e) => {
-                      // TODO: Implement search functionality
-                      console.log("Searching for:", e.target.value);
-                    }}
-                  />
+  const renderTemplateMessageForm = (variantIndex = 0) => {
+    const selectedTemplateId = abTestingEnabled
+      ? formData.messageVariants?.[variantIndex]?.templateId
+      : formData.templateId;
+
+    const selectedTemplate = templates.find(
+      (t) => t._id === selectedTemplateId
+    );
+
+    return (
+      <div className="space-y-4">
+        {!selectedTemplate ? (
+          <>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-wa-text-primary-light dark:text-wa-text-primary-dark flex items-center">
+                <FileText className="w-4 h-4 mr-2 text-wa-icon-light dark:text-wa-icon-dark" />
+                Select Template <span className="text-red-500 ml-1">*</span>
+              </label>
+              <div className="space-y-3">
+                {/* Template Selection with Search */}
+                <Select
+                  value={
+                    abTestingEnabled
+                      ? formData.messageVariants?.[variantIndex]?.templateId ||
+                        ""
+                      : formData.templateId || ""
+                  }
+                  onValueChange={(value) =>
+                    handleTemplateSelection(value, variantIndex)
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Search and select a template" />
+                  </SelectTrigger>
+                  <SelectContent
+                    onOpenAutoFocus={(e) => e.preventDefault()}
+                    onCloseAutoFocus={(e) => e.preventDefault()}
+                  >
+                    <div className="p-2">
+                      <div className="relative">
+                        <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search templates..."
+                          className="pl-8"
+                          value={templateSearch}
+                          onChange={(e) =>
+                            handleTemplateSearchChange(e.target.value)
+                          }
+                          onFocus={(e) => e.target.select()}
+                          onKeyDown={(e) => {
+                            // Prevent dropdown from closing on key presses
+                            if (e.key === "Escape") {
+                              e.stopPropagation();
+                            }
+                          }}
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+                    <div className="max-h-[200px] overflow-y-auto">
+                      {isLoadingTemplates ? (
+                        <div className="p-4 text-center text-sm text-gray-500">
+                          Loading templates...
+                        </div>
+                      ) : templates.length === 0 ? (
+                        <div className="p-4 text-center text-sm text-gray-500">
+                          {debouncedSearch
+                            ? "No templates found"
+                            : "No templates available"}
+                        </div>
+                      ) : (
+                        templates.map((template) => (
+                          <SelectItem key={template._id} value={template._id}>
+                            <div className="flex flex-col">
+                              <span className="font-medium">
+                                {capitalize(template.name)}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {capitalize(template.type)} •
+                                {template.lastUsed !== null &&
+                                template.lastUsed !== undefined
+                                  ? ` Last used ${longAgo(template.lastUsed)}`
+                                  : " Never Used"}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))
+                      )}
+                    </div>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="space-y-3">
+            <div className="bg-wa-brand/5 dark:bg-wa-brand/10 p-3 rounded-lg border border-wa-brand/20">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <FileText className="w-5 h-5 text-wa-brand" />
+                  <div>
+                    <h4 className="font-medium text-sm text-wa-text-primary-light dark:text-wa-text-primary-dark">
+                      {capitalize(selectedTemplate.name)}
+                    </h4>
+                    <p className="text-xs text-wa-text-secondary-light dark:text-wa-text-secondary-dark">
+                      {capitalize(selectedTemplate.type)} •
+                      {selectedTemplate.lastUsed !== null &&
+                      selectedTemplate.lastUsed !== undefined
+                        ? ` Last used ${longAgo(selectedTemplate.lastUsed)}`
+                        : " Never Used"}
+                    </p>
+                  </div>
                 </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    if (abTestingEnabled) {
+                      const updatedVariants = [
+                        ...(formData.messageVariants || []),
+                      ];
+                      updatedVariants[variantIndex] = {
+                        ...updatedVariants[variantIndex],
+                        templateId: "",
+                      };
+                      onFormChange("messageVariants", updatedVariants);
+                    } else {
+                      onFormChange("templateId", "");
+                    }
+
+                    // Clear search when template is removed
+                    clearTemplateSearch();
+                  }}
+                  className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                >
+                  <Trash className="w-4 h-4" />
+                </Button>
               </div>
-              <div className="max-h-[200px] overflow-y-auto">
-                {/* Template options will be dynamically inserted here */}
-                <SelectItem value="template1">
-                  Welcome Message Template
-                </SelectItem>
-                <SelectItem value="template2">
-                  Promotional Offer Template
-                </SelectItem>
-                <SelectItem value="template3">
-                  Order Confirmation Template
-                </SelectItem>
-                <SelectItem value="template4">
-                  Customer Support Template
-                </SelectItem>
-                <SelectItem value="template5">Newsletter Template</SelectItem>
-              </div>
-            </SelectContent>
-          </Select>
-        </div>
+            </div>
+
+            {/* Template Variables Warning */}
+            {selectedTemplate.variables &&
+              selectedTemplate.variables.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-2">
+                    {selectedTemplate.variables.map((variable, index) => (
+                      <span
+                        key={index}
+                        className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+                      >
+                        {variable}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-sm text-red-500 font-semibold dark:text-400">
+                    Ensure your audience has all these fields to avoid sending
+                    unreadable or meaningless messages!
+                  </p>
+                </div>
+              )}
+          </div>
+        )}
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderMixedContentForm = (variantIndex = 0) => (
     <div className="space-y-6">
@@ -350,10 +583,10 @@ const MessageContentSection = ({
                           textarea.focus();
                         }
                       }}
-                      className={`px-3 py-2 text-sm rounded-lg border transition-all duration-200 font-medium ${
+                      className={`px-3 py-1 text-sm rounded-full border transition-all duration-200 font-medium ${
                         isInserted
-                          ? "bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                          : "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600 shadow-sm"
+                          ? "bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 cursor-default opacity-60"
+                          : "bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-wa-brand/10 dark:hover:bg-wa-brand/20 hover:border-wa-brand dark:hover:border-wa-brand shadow-sm"
                       }`}
                       title={`Click to insert ${fieldValue} - ${field.label}`}
                     >
@@ -371,53 +604,114 @@ const MessageContentSection = ({
       </div>
 
       {/* Media Upload */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-wa-text-primary-light dark:text-wa-text-primary-dark flex items-center">
-          <Upload className="w-4 h-4 mr-2 text-wa-icon-light dark:text-wa-icon-dark" />
-          File<span className="text-red-500 ml-1">*</span>
-        </label>
-        <div className="relative">
-          <input
-            type="file"
-            id={`mixed-media-upload-${variantIndex}`}
-            className="hidden"
-            accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
-            onChange={(e) => {
-              const file = e.target.files[0];
-              if (file) {
-                handleFileUpload(file, variantIndex);
-              }
-            }}
-          />
-          <label
-            htmlFor={`mixed-media-upload-${variantIndex}`}
-            className="border-2 border-dashed border-wa-border-light dark:border-wa-border-dark rounded-lg p-6 text-center hover:border-wa-brand/50 transition-colors cursor-pointer block"
-          >
+      {(() => {
+        const currentMediaFile = abTestingEnabled
+          ? formData.messageVariants?.[variantIndex]?.mediaFile
+          : formData.mediaFile;
+
+        console.log(
+          "renderMixedContentForm - currentMediaFile:",
+          currentMediaFile
+        );
+        console.log(
+          "renderMixedContentForm - formData.mediaFile:",
+          formData.mediaFile
+        );
+        console.log(
+          "renderMixedContentForm - abTestingEnabled:",
+          abTestingEnabled
+        );
+
+        if (!currentMediaFile) {
+          // Show upload area only when no file is selected
+          return (
             <div className="space-y-2">
-              <Upload className="w-8 h-8 mx-auto text-wa-icon-light dark:text-wa-icon-dark" />
-              <p className="text-sm text-wa-text-secondary-light dark:text-wa-text-secondary-dark">
-                Click to upload or drag and drop
-              </p>
-              <p className="text-xs text-wa-text-secondary-light dark:text-wa-text-secondary-dark">
-                Supports: Images, Videos, Audio, Documents
-              </p>
+              <label className="text-sm font-medium text-wa-text-primary-light dark:text-wa-text-primary-dark flex items-center">
+                <Upload className="w-4 h-4 mr-2 text-wa-icon-light dark:text-wa-icon-dark" />
+                Upload Media File <span className="text-red-500 ml-1">*</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="file"
+                  id={`mixed-media-upload-${variantIndex}`}
+                  className="hidden"
+                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
+                  onChange={(e) => {
+                    console.log(
+                      "Mixed media file input onChange triggered:",
+                      e.target.files
+                    );
+                    const file = e.target.files[0];
+                    if (file) {
+                      console.log("Mixed media file selected:", file);
+                      handleFileUpload(file, variantIndex);
+                    } else {
+                      console.log("No mixed media file selected");
+                    }
+                  }}
+                />
+                <label
+                  htmlFor={`mixed-media-upload-${variantIndex}`}
+                  className="border-2 border-dashed border-wa-border-light dark:border-wa-border-dark rounded-lg p-6 text-center hover:border-wa-brand/50 transition-colors cursor-pointer block"
+                >
+                  <div className="space-y-2">
+                    <Upload className="w-8 h-8 mx-auto text-wa-icon-light dark:text-wa-icon-dark" />
+                    <p className="text-sm text-wa-text-secondary-light dark:text-wa-text-secondary-dark">
+                      Click to upload or drag and drop
+                    </p>
+                    <p className="text-xs text-wa-text-secondary-light dark:text-wa-text-secondary-dark">
+                      Supports: Images, Videos, Audio, Documents
+                    </p>
+                  </div>
+                </label>
+              </div>
             </div>
-          </label>
-        </div>
-        {/* Show selected file if any */}
-        {((abTestingEnabled &&
-          formData.messageVariants?.[variantIndex]?.mediaFile) ||
-          (!abTestingEnabled && formData.mediaFile)) && (
-          <div className="bg-wa-brand/5 dark:bg-wa-brand/10 p-3 rounded-lg border border-wa-brand/20">
-            <p className="text-sm text-wa-text-primary-light dark:text-wa-text-primary-dark">
-              Selected:{" "}
-              {abTestingEnabled
-                ? formData.messageVariants?.[variantIndex]?.mediaFile?.name
-                : formData.mediaFile?.name}
-            </p>
-          </div>
-        )}
-      </div>
+          );
+        } else {
+          // Show file details and remove button when file is selected
+          return (
+            <div className="space-y-4">
+              <div className="bg-wa-brand/5 dark:bg-wa-brand/10 p-4 rounded-lg border border-wa-brand/20">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center space-x-3">
+                    <Image className="w-5 h-5 text-wa-brand" />
+                    <div>
+                      <h4 className="font-medium text-sm text-wa-text-primary-light dark:text-wa-text-primary-dark">
+                        {currentMediaFile.name}
+                      </h4>
+                      <p className="text-xs text-wa-text-secondary-light dark:text-wa-text-secondary-dark">
+                        {(currentMediaFile.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      if (abTestingEnabled) {
+                        const updatedVariants = [
+                          ...(formData.messageVariants || []),
+                        ];
+                        updatedVariants[variantIndex] = {
+                          ...updatedVariants[variantIndex],
+                          mediaFile: null,
+                        };
+                        onFormChange("messageVariants", updatedVariants);
+                      } else {
+                        onFormChange("mediaFile", null);
+                      }
+                    }}
+                    className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  >
+                    <Trash className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          );
+        }
+      })()}
     </div>
   );
 
@@ -786,7 +1080,7 @@ const MessageContentSection = ({
                     }}
                     className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                   >
-                    <X className="w-4 h-4" />
+                    <Trash className="w-4 h-4" />
                   </Button>
                 )}
               </div>
@@ -863,10 +1157,10 @@ const MessageContentSection = ({
                                   textarea.focus();
                                 }
                               }}
-                              className={`px-3 py-2 text-sm rounded-lg border transition-all duration-200 font-medium ${
+                              className={`px-3 py-1 text-sm rounded-full border transition-all duration-200 font-medium ${
                                 isInserted
-                                  ? "bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                                  : "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600 shadow-sm"
+                                  ? "bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 cursor-default opacity-60"
+                                  : "bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-wa-brand/10 dark:hover:bg-wa-brand/20 hover:border-wa-brand dark:hover:border-wa-brand shadow-sm"
                               }`}
                               title={`Click to insert ${fieldValue} - ${field.label}`}
                             >

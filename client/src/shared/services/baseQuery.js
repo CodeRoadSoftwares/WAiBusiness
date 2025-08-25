@@ -5,7 +5,13 @@ import { fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 const baseQuery = fetchBaseQuery({
   baseUrl: import.meta.env.VITE_API_BASE_URL,
   credentials: "include",
-  prepareHeaders: (headers) => {
+  prepareHeaders: (headers, { getState, endpoint }) => {
+    // Don't modify headers for FormData (file uploads)
+    // The browser will automatically set the correct Content-Type for FormData
+
+    // If you need to add auth headers, you can do it here
+    // But for cookie-based auth, credentials: "include" should be sufficient
+
     return headers;
   },
 });
@@ -14,6 +20,8 @@ const baseQuery = fetchBaseQuery({
 const customBaseQuery = async (args, api, extraOptions) => {
   try {
     console.log("🚀 Making API request:", args.url);
+    console.log("🚀 Request body type:", typeof args.body);
+    console.log("🚀 Is FormData:", args.body instanceof FormData);
 
     // First, make the original request
     const result = await baseQuery(args, api, extraOptions);

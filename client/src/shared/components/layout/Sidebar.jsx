@@ -4,7 +4,7 @@ import { BiQrScan } from "react-icons/bi";
 import { IoMdSettings } from "react-icons/io";
 import { MdChat } from "react-icons/md";
 import { MdCampaign } from "react-icons/md";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate, Link } from "react-router-dom";
 import {
   useGetAuthStatusQuery,
   useLogoutMutation,
@@ -26,7 +26,7 @@ const navItems = [
     icon: <BiQrScan />,
   },
   {
-    to: "/create-campaign",
+    to: "/campaign",
     label: "Campaign",
     icon: <MdCampaign />,
   },
@@ -79,23 +79,22 @@ function Sidebar() {
   const planLabel =
     PLAN_LABELS[(plan || "free").toLowerCase()] || PLAN_LABELS.free;
   return (
-    <aside className="w-72 shrink-0 hidden md:flex md:flex-col border-r border-wa-border-light dark:border-wa-border-dark bg-wa-bg-panel-light dark:bg-wa-bg-panel-dark">
-      <div className="h-14 shadow-waHeader bg-wa-bg-panelHeader-light dark:bg-wa-bg-panelHeader-dark flex items-center px-3 md:px-4">
-        <div className="flex items-center gap-2 flex-1">
-          <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded-md bg-wa-bg-panel-light dark:bg-wa-bg-panel-dark border border-wa-border-light dark:border-wa-border-dark">
-            <svg
-              viewBox="0 0 24 24"
-              className="w-4 h-4 text-wa-icon-light dark:text-wa-icon-dark"
-              fill="currentColor"
-            >
-              <path d="M15.5 14h-.79l-.28-.27a6.471 6.471 0 001.48-5.34C15.21 5.01 12.2 2 8.6 2S2 5.01 2 8.39c0 3.38 3.01 6.39 6.6 6.39 1.61 0 3.09-.59 4.22-1.57l.27.28v.79l4.25 4.25c.41.41 1.07.41 1.48 0 .41-.41.41-1.07 0-1.48L15.5 14zm-6.9 0C5.02 14 2 10.98 2 7.5S5.02 1 8.6 1 15.2 4.02 15.2 7.5 12.18 14 8.6 14z" />
-            </svg>
-            <input
-              className="w-full bg-transparent outline-none text-sm"
-              placeholder="Search or start new chat"
-            />
-          </div>
-        </div>
+    <aside className="w-72 shrink-0 hidden md:flex md:flex-col bg-white">
+      <div className="h-14 bg-white flex items-center px-3 md:px-4">
+        <Link
+          to="/dashboard"
+          className="flex items-center justify-center gap-1 text-base md:text-lg font-semibold"
+        >
+          <img
+            src="/brand-logo.png"
+            alt="WAiBusiness"
+            className="w-10 h-10 mr-2"
+          />
+          WAiBusiness
+        </Link>
+        <span className="text-[10px] px-1.5 py-0.5 rounded bg-wa-brand/10 text-wa-brand ml-2">
+          beta
+        </span>
       </div>
       <nav className="p-3 space-y-1 overflow-y-auto">
         {navItems.map(({ to, label, icon }) => (

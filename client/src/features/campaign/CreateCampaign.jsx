@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   CollapsibleSection,
   MessageContentSection,
   AudienceSection,
+  ScheduleSection,
 } from "./components";
 import {
   Users,
@@ -13,6 +15,8 @@ import {
   FileText,
   Type,
   Megaphone,
+  LockKeyhole,
+  Eye,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -24,8 +28,258 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { useGetAuthStatusQuery } from "@/features/auth/api/authApi";
+import { useCreateCampaignMutation } from "./api/campaignApi";
+import { CgAttachment } from "react-icons/cg";
+import {
+  MdCampaign,
+  MdOutlineAttachment,
+  MdOutlinePhotoCamera,
+} from "react-icons/md";
+import { GrAttachment } from "react-icons/gr";
+import { BiSolidSend } from "react-icons/bi";
+import WhatsAppPreview from "../../shared/components/WhatsAppPreview";
+import AlertDialogComponent from "@/components/ui/AlertDialog";
+
+// Create Campaign Button Component with Validations
+const CreateCampaignButton = ({ formData, onFormReset }) => {
+  const navigate = useNavigate();
+  const [createCampaign, { isLoading, error }] = useCreateCampaignMutation();
+  const [validationErrors, setValidationErrors] = useState([]);
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+
+  // Validation function
+  const validateForm = () => {
+    const errors = [];
+
+    // Basic campaign info validation
+    if (!formData.name?.trim()) {
+      errors.push("Campaign name is required");
+    }
+
+    // Audience validation
+    if (formData.audienceType === "upload" && !formData.audienceFile) {
+      errors.push("Please upload a contact list file");
+    }
+
+    if (formData.audienceType === "existing" && !formData.existingAudienceId) {
+      errors.push("Please select an existing audience");
+    }
+
+    if (formData.audienceContactCount === 0) {
+      errors.push("No contacts found in the audience");
+    }
+
+    // Message validation
+    if (formData.messageType === "text" && !formData.messageContent?.trim()) {
+      errors.push("Message content is required");
+    }
+
+    if (formData.messageType === "media" && !formData.mediaFile) {
+      errors.push("Please upload a media file");
+    }
+
+    if (
+      formData.messageType === "mixed" &&
+      (!formData.messageContent?.trim() || !formData.mediaFile)
+    ) {
+      errors.push("Mixed content requires both message text and media file");
+    }
+
+    if (formData.messageType === "template" && !formData.templateId) {
+      errors.push("Please select a message template");
+    }
+
+    // Schedule validation
+    if (formData.scheduleType === "scheduled" && !formData.scheduledDate) {
+      errors.push("Please select a scheduled date and time");
+    }
+
+    if (
+      formData.scheduleType === "delayed" &&
+      (!formData.customDelay || formData.customDelay <= 0)
+    ) {
+      errors.push("Please set a valid delay time");
+    }
+
+    // Advanced settings validation
+    if (formData.rateLimit < 1 || formData.rateLimit > 100) {
+      errors.push("Rate limit must be between 1 and 100 messages per minute");
+    }
+
+    setValidationErrors(errors);
+    return errors.length === 0;
+  };
+
+  // Real-time validation updates after first submit attempt
+  React.useEffect(() => {
+    if (hasAttemptedSubmit) {
+      validateForm();
+    }
+  }, [formData, hasAttemptedSubmit]);
+
+  // Handle campaign creation
+  const handleCreateCampaign = async () => {
+    setHasAttemptedSubmit(true);
+
+    if (!validateForm()) {
+      return;
+    }
+
+    try {
+      // Create FormData for file uploads
+      const campaignFormData = new FormData();
+
+      // Add all campaign data
+      campaignFormData.append("name", formData.name);
+      campaignFormData.append("description", formData.description);
+      campaignFormData.append("campaignType", formData.campaignType);
+      campaignFormData.append("audienceType", formData.audienceType);
+      campaignFormData.append(
+        "existingAudienceId",
+        formData.existingAudienceId
+      );
+      campaignFormData.append(
+        "saveAudienceForFuture",
+        formData.saveAudienceForFuture
+      );
+      campaignFormData.append("messageType", formData.messageType);
+      campaignFormData.append("messageContent", formData.messageContent);
+      campaignFormData.append("templateId", formData.templateId);
+      campaignFormData.append(
+        "messageVariants",
+        JSON.stringify(formData.messageVariants)
+      );
+      campaignFormData.append("abTesting", formData.abTesting);
+      campaignFormData.append("rateLimit", formData.rateLimit);
+      campaignFormData.append("randomDelay", formData.randomDelay);
+      campaignFormData.append("autoRetry", formData.autoRetry);
+      campaignFormData.append("scheduleType", formData.scheduleType);
+      campaignFormData.append("scheduledDate", formData.scheduledDate);
+      campaignFormData.append("timeZone", formData.timeZone);
+      campaignFormData.append("customDelay", formData.customDelay);
+      campaignFormData.append("delayUnit", formData.delayUnit);
+
+      // Add availableMergeFields (this is crucial for audience processing)
+      campaignFormData.append(
+        "availableMergeFields",
+        JSON.stringify(formData.availableMergeFields)
+      );
+
+      // Add files if they exist
+      if (formData.audienceFile instanceof File) {
+        campaignFormData.append("audienceFile", formData.audienceFile);
+      }
+
+      if (formData.mediaFile instanceof File) {
+        campaignFormData.append("mediaFile", formData.mediaFile);
+      }
+
+      // Debug: Check for duplicate keys
+      const keys = [];
+      for (let [key] of campaignFormData.entries()) {
+        keys.push(key);
+      }
+
+      // Check for duplicates
+      const duplicates = keys.filter(
+        (item, index) => keys.indexOf(item) !== index
+      );
+      if (duplicates.length > 0) {
+        console.warn("⚠️ Duplicate keys found:", duplicates);
+      }
+
+      const result = await createCampaign(campaignFormData).unwrap();
+
+      // Show success dialog
+      setShowSuccessDialog(true);
+    } catch (err) {
+      console.error("Failed to create campaign:", err);
+      // Error is already handled by RTK Query
+    }
+  };
+
+  // Handle success dialog close and redirect
+  const handleSuccessDialogClose = () => {
+    setShowSuccessDialog(false);
+    // Reset form and redirect to campaign page
+    onFormReset();
+    navigate("/campaign");
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Success Dialog */}
+      <AlertDialogComponent
+        isOpen={showSuccessDialog}
+        onClose={handleSuccessDialogClose}
+        type="success"
+        title="Campaign Created! 🎉"
+        description="Your campaign has been created and is ready to go. You can now manage it from your campaigns dashboard."
+        buttonText="Go to Campaigns"
+        showCancel={false}
+      />
+
+      {/* Validation Errors */}
+      {hasAttemptedSubmit && validationErrors.length > 0 && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <h4 className="text-sm font-medium text-red-800 dark:text-red-200 mb-2">
+            Please fix the following issues:
+          </h4>
+          <ul className="text-sm text-red-700 dark:text-red-300 space-y-1">
+            {validationErrors.map((error, index) => (
+              <li key={index} className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
+                {error}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Create Campaign Button */}
+      <Button
+        onClick={handleCreateCampaign}
+        size="xl"
+        disabled={isLoading || validationErrors.length > 0}
+        className="w-full bg-wa-brand hover:bg-wa-brand/90 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {isLoading ? (
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            Creating Campaign...
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 text-xl">
+            <MdCampaign className="text-white !w-8 !h-8 -rotate-12" />
+            Create Campaign
+          </div>
+        )}
+      </Button>
+
+      {/* Error Display */}
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <h4 className="text-sm font-medium text-red-800 dark:text-red-200 mb-2">
+            Failed to create campaign:
+          </h4>
+          <p className="text-sm text-red-700 dark:text-red-300">
+            {error?.data?.message ||
+              error?.error ||
+              "An unexpected error occurred"}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
 
 function CreateCampaign() {
+  const { data: authData } = useGetAuthStatusQuery(undefined, {
+    refetchOnMountOrArgChange: true,
+  });
+
   const [formData, setFormData] = useState({
     // Campaign Information
     name: "",
@@ -33,7 +287,7 @@ function CreateCampaign() {
     description: "",
 
     // Audience Selection
-    audienceType: "",
+    audienceType: "upload",
     audienceFile: null,
     existingAudienceId: "",
     saveAudienceForFuture: false,
@@ -42,6 +296,7 @@ function CreateCampaign() {
     audienceHeaders: [],
     audienceContactCount: 0,
     availableMergeFields: [],
+    audienceSampleData: [], // First row data for preview
 
     // Message Content
     messageType: "text",
@@ -55,24 +310,65 @@ function CreateCampaign() {
     rateLimit: 20,
     randomDelay: true,
     autoRetry: true,
+
+    // Schedule & Timezone
+    scheduleType: "scheduled",
+    scheduledDate: null,
+    timeZone: "IST",
+    customDelay: 0,
+    delayUnit: "minutes",
   });
 
   const handleFormChange = (name, value) => {
-    console.log("Form change:", name, "=", value);
     setFormData((prev) => {
       const newData = {
         ...prev,
         [name]: value,
       };
-      console.log("New form data:", newData);
       return newData;
     });
   };
 
-  // Debug: Log formData changes
-  useEffect(() => {
-    console.log("FormData updated:", formData);
-  }, [formData]);
+  const handleFormReset = () => {
+    setFormData({
+      // Campaign Information
+      name: "",
+      campaignType: "marketing",
+      description: "",
+
+      // Audience Selection
+      audienceType: "upload",
+      audienceFile: null,
+      existingAudienceId: "",
+      saveAudienceForFuture: false,
+
+      // Audience Variables (extracted from file)
+      audienceHeaders: [],
+      audienceContactCount: 0,
+      availableMergeFields: [],
+      audienceSampleData: [], // First row data for preview
+
+      // Message Content
+      messageType: "text",
+      messageContent: "",
+      mediaFile: null,
+      templateId: "",
+      messageVariants: [],
+
+      // Advanced Settings
+      abTesting: false,
+      rateLimit: 20,
+      randomDelay: true,
+      autoRetry: true,
+
+      // Schedule & Timezone
+      scheduleType: "scheduled",
+      scheduledDate: null,
+      timeZone: "IST",
+      customDelay: 0,
+      delayUnit: "minutes",
+    });
+  };
 
   return (
     <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -150,7 +446,19 @@ function CreateCampaign() {
           </CollapsibleSection>
 
           {/* Audience Section - Now before Content */}
-          <CollapsibleSection title="Audience" defaultOpen={false} icon={Users}>
+          <CollapsibleSection
+            title="Audience"
+            defaultOpen={false}
+            icon={Users}
+            status={
+              formData.audienceType === "upload" && formData.audienceFile
+                ? "File Uploaded"
+                : formData.audienceType === "existing" &&
+                  formData.existingAudienceId
+                ? "Audience Set"
+                : "Not Set"
+            }
+          >
             <AudienceSection
               formData={formData}
               onFormChange={handleFormChange}
@@ -162,6 +470,19 @@ function CreateCampaign() {
             title="Content"
             defaultOpen={false}
             icon={MessageSquare}
+            status={
+              formData.messageType === "text" && formData.messageContent?.trim()
+                ? "Text"
+                : formData.messageType === "media" && formData.mediaFile
+                ? "Media"
+                : formData.messageType === "template" && formData.templateId
+                ? "Template"
+                : formData.messageType === "mixed" &&
+                  formData.messageContent?.trim() &&
+                  formData.mediaFile
+                ? "Mixed"
+                : "Not Set"
+            }
           >
             <MessageContentSection
               formData={formData}
@@ -171,73 +492,30 @@ function CreateCampaign() {
           </CollapsibleSection>
 
           <CollapsibleSection
-            title="Scheduling & Delivery"
+            title="Schedule"
             defaultOpen={false}
             icon={Calendar}
+            status={
+              formData.scheduleType === "immediate"
+                ? "Immediate"
+                : formData.scheduleType === "delayed"
+                ? "Delayed"
+                : formData.scheduleType === "scheduled"
+                ? "Scheduled"
+                : "Not Set"
+            }
           >
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Schedule Date */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-wa-text-primary-light dark:text-wa-text-primary-dark flex items-center">
-                    <Calendar className="w-4 h-4 mr-2 text-wa-icon-light dark:text-wa-icon-dark" />
-                    Schedule Date
-                  </label>
-                  <Input
-                    type="datetime-local"
-                    placeholder="Select date and time"
-                    className="w-full"
-                  />
-                </div>
-
-                {/* Time Zone */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-wa-text-primary-light dark:text-wa-text-primary-dark flex items-center">
-                    <Calendar className="w-4 h-4 mr-2 text-wa-icon-light dark:text-wa-icon-dark" />
-                    Time Zone
-                  </label>
-                  <Select value="" onValueChange={() => {}}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select timezone" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="utc">
-                        UTC (Coordinated Universal Time)
-                      </SelectItem>
-                      <SelectItem value="est">
-                        EST (Eastern Standard Time)
-                      </SelectItem>
-                      <SelectItem value="pst">
-                        PST (Pacific Standard Time)
-                      </SelectItem>
-                      <SelectItem value="gmt">
-                        GMT (Greenwich Mean Time)
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Recurring Options */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-wa-text-primary-light dark:text-wa-text-primary-dark flex items-center">
-                  <Calendar className="w-4 h-4 mr-2 text-wa-icon-light dark:text-wa-icon-dark" />
-                  Recurring Options
-                </label>
-                <div className="bg-wa-bg-chat-light dark:bg-wa-bg-chat-dark p-4 rounded-lg border border-wa-border-light/30 dark:border-wa-border-dark/30">
-                  <p className="text-sm text-wa-text-secondary-light dark:text-wa-text-secondary-dark">
-                    Set up recurring campaigns for regular messaging. Choose
-                    frequency, end date, and delivery preferences.
-                  </p>
-                </div>
-              </div>
-            </div>
+            <ScheduleSection
+              formData={formData}
+              onFormChange={handleFormChange}
+            />
           </CollapsibleSection>
 
           <CollapsibleSection
             title="Advanced Settings"
             defaultOpen={false}
             icon={Settings}
+            disabled={true}
           >
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -348,98 +626,98 @@ function CreateCampaign() {
           </CollapsibleSection>
 
           {/* Debug Section - Remove this in production */}
-          <div className="mt-8 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
+          {/* <div className="mt-8 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
             <h3 className="text-lg font-semibold mb-2">Form Data (Debug)</h3>
             <pre className="text-xs overflow-auto">
-              {JSON.stringify(formData, null, 2)}
+              {(() => {
+                // Create a debug-friendly version of formData
+                const debugData = { ...formData };
+
+                // Handle File objects specially
+                if (debugData.mediaFile instanceof File) {
+                  debugData.mediaFile = {
+                    name: debugData.mediaFile.name,
+                    size: debugData.mediaFile.size,
+                    type: debugData.mediaFile.type,
+                    lastModified: debugData.mediaFile.lastModified,
+                    _type: "File",
+                  };
+                }
+
+                if (debugData.audienceFile instanceof File) {
+                  debugData.audienceFile = {
+                    name: debugData.audienceFile.name,
+                    size: debugData.audienceFile.size,
+                    type: debugData.audienceFile.type,
+                    lastModified: debugData.audienceFile.lastModified,
+                    _type: "File",
+                  };
+                }
+
+                return JSON.stringify(debugData, null, 2);
+              })()}
             </pre>
-          </div>
+          </div> */}
+
+          {/* Create Campaign Button */}
+          <CreateCampaignButton
+            formData={formData}
+            onFormReset={handleFormReset}
+          />
         </div>
 
-        {/* Right Column - Message Preview */}
+        {/* Right Column - WhatsApp Chat Preview */}
         <div className="lg:col-span-1">
           <div className="sticky top-8">
-            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                  Message Preview
-                </h3>
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    WhatsApp
-                  </span>
-                </div>
-              </div>
-
-              {/* Preview Content */}
-              <div className="space-y-4">
-                {/* Campaign Info Preview */}
-                {formData.name && (
-                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                      {formData.name}
-                    </p>
-                    {formData.description && (
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                        {formData.description}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* Message Content Preview */}
-                {formData.messageContent && (
-                  <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 border-l-4 border-green-500">
-                    <p className="text-sm text-gray-900 dark:text-gray-100">
-                      {formData.messageContent}
-                    </p>
-                  </div>
-                )}
-
-                {/* Audience Preview */}
-                {formData.audienceContactCount > 0 && (
-                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border-l-4 border-blue-500">
-                    <div className="flex items-center space-x-2">
-                      <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                      <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                        {formData.audienceContactCount} contacts
-                      </span>
-                    </div>
-                    <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                      {formData.audienceHeaders.length} personalization fields
-                      available
-                    </p>
-                  </div>
-                )}
-
-                {/* Default Preview State */}
-                {!formData.name &&
-                  !formData.messageContent &&
-                  !formData.audienceContactCount && (
-                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                      <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                      <p className="text-sm">
-                        Start building your campaign to see a preview here
-                      </p>
-                    </div>
-                  )}
-              </div>
-
-              {/* Quick Actions */}
-              <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <div className="grid grid-cols-2 gap-2">
-                  <Button variant="outline" size="sm" className="w-full">
-                    <MessageSquare className="w-4 h-4 mr-2" />
-                    Test Message
-                  </Button>
-                  <Button variant="outline" size="sm" className="w-full">
-                    <Users className="w-4 h-4 mr-2" />
-                    Preview List
-                  </Button>
-                </div>
-              </div>
-            </div>
+            <CollapsibleSection
+              title="Preview"
+              defaultOpen={true}
+              icon={Eye}
+              nonCollapsible={true}
+            >
+              <WhatsAppPreview
+                contactName={authData?.user?.name || "User"}
+                contactStatus="online"
+                contactInitial={
+                  authData?.user?.name?.charAt(0)?.toUpperCase() || "U"
+                }
+                systemMessages={[
+                  {
+                    type: "info",
+                    content: "Today",
+                    variant: "default",
+                  },
+                  {
+                    type: "info",
+                    content:
+                      "Messages and calls are end-to-end encrypted. Only people in this chat can read, listen to, or share them. Learn more.",
+                    icon: LockKeyhole,
+                    variant: "info",
+                  },
+                ]}
+                messageType={formData.messageType}
+                messageContent={formData.messageContent}
+                mediaFile={formData.mediaFile}
+                defaultMessage="Start building your campaign to see the message here..."
+                height="500px"
+                showInputArea={true}
+                showHeader={true}
+                showMergeFields={true}
+                mergeFields={formData.availableMergeFields.map((field) => ({
+                  field: field.field,
+                  label: field.label,
+                  sampleValue:
+                    formData.audienceSampleData?.[
+                      formData.audienceHeaders.findIndex(
+                        (header) =>
+                          header.toLowerCase().replace(/\s+/g, "") ===
+                          field.field
+                      )
+                    ] || `Sample ${field.label}`,
+                }))}
+                audienceCount={formData.audienceContactCount}
+              />
+            </CollapsibleSection>
           </div>
         </div>
       </div>

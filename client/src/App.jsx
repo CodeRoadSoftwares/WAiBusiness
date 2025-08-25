@@ -9,6 +9,9 @@ import Main from "./shared/components/layout/Main";
 import NotFound from "./NotFound";
 import LinkDevice from "./features/link-device/LinkDevice";
 import CreateCampaign from "./features/campaign/CreateCampaign";
+import Campaign from "./features/campaign/Campaign";
+import CreateAudience from "./features/audience/CreateAudience";
+import CreateTemplate from "./features/template/CreateTemplate";
 
 function App() {
   return (
@@ -65,9 +68,38 @@ function App() {
               </AuthGuard>
             }
           />
-
           <Route
-            path="/create-campaign"
+            path="/campaign"
+            element={
+              <AuthGuard mode="private">
+                <Main>
+                  <Campaign />
+                </Main>
+              </AuthGuard>
+            }
+          />
+          <Route
+            path="/campaign/create-audience"
+            element={
+              <AuthGuard mode="private">
+                <Main>
+                  <CreateAudience />
+                </Main>
+              </AuthGuard>
+            }
+          />
+          <Route
+            path="/campaign/create-template"
+            element={
+              <AuthGuard mode="private">
+                <Main>
+                  <CreateTemplate />
+                </Main>
+              </AuthGuard>
+            }
+          />
+          <Route
+            path="/campaign/create-campaign"
             element={
               <AuthGuard mode="private">
                 <Main>

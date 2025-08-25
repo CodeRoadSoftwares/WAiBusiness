@@ -5,7 +5,7 @@ const { Schema } = mongoose;
 /** Per-recipient delivery state (per variant) */
 const RecipientSchema = new Schema(
   {
-    phoneNumber: { type: String, required: true },
+    phone: { type: String, required: true },
     name: { type: String },
     variables: { type: Map, of: String }, // dynamic placeholders per recipient
 
@@ -41,7 +41,7 @@ const MediaSchema = new Schema(
 /** A single message variant (A/B or single) */
 const MessageVariantSchema = new Schema(
   {
-    variantName: { type: String, required: true }, // e.g., "A", "B" (or "Single" when not A/B)
+    variantName: { type: String, required: true, default: "Single" }, // e.g., "A", "B" (or "Single" when not A/B)
     type: {
       type: String,
       enum: ["text", "media", "template", "mixed"],
@@ -59,7 +59,7 @@ const MessageVariantSchema = new Schema(
 
     // per-variant metrics
     metrics: {
-      totalRecipients: { type: Number, default: 0 },
+      totalRecipients: { type: Number, required: true },
       sent: { type: Number, default: 0 },
       delivered: { type: Number, default: 0 },
       read: { type: Number, default: 0 },
@@ -111,7 +111,6 @@ const CampaignSchema = new Schema(
       allocation: {
         type: String,
         enum: ["uniform", "weighted", "round_robin", "deterministicHash"],
-        default: "uniform",
       },
 
       // only used when allocation = "weighted"
@@ -136,7 +135,6 @@ const CampaignSchema = new Schema(
           "lowestFail",
           "custom",
         ],
-        default: "highestRead",
       },
       evaluationWindowMinutes: { type: Number, default: 60 }, // wait time in minutes before choosing winner
       autoPromoteWinner: { type: Boolean, default: false }, // send winner to remaining audience
@@ -181,13 +179,22 @@ const CampaignSchema = new Schema(
     },
 
     // Optional: reference to an Audience used as the source list (for audit)
-    audience: { type: Schema.Types.ObjectId, ref: "Audience" },
+    existingAudienceId: { type: Schema.Types.ObjectId, ref: "Audience" },
 
     // Scheduling
-    schedule: { type: Date }, // when to start (if scheduled)
-    timeZone: { type: String },
-    isRecurring: { type: Boolean, default: false },
-    recurrenceRule: { type: String }, // cron-like
+    scheduleType: {
+      type: String,
+      enum: ["immediate", "scheduled", "delayed"],
+      default: "immediate",
+    },
+    scheduledDate: { type: Date }, // when to start (if scheduled)
+    timeZone: { type: String, default: "IST" },
+    customDelay: { type: Number, default: 0 },
+    delayUnit: {
+      type: String,
+      enum: ["minutes", "hours", "days"],
+      default: "minutes",
+    },
 
     // Campaign status
     status: {

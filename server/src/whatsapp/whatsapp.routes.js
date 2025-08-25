@@ -1,7 +1,13 @@
 import express from "express";
 import { requireAuth } from "../middlewares/auth.middleware.js";
+import multer from "multer";
 import WhatsappController from "./whatsapp.controller.js";
 import { CampaignController } from "./campaigns/campaign.controller.js";
+import {
+  uploadCampaignFiles,
+  uploadMedia,
+} from "../middlewares/fileUpload.middleware.js";
+import { TemplateController } from "./template/template.controller.js";
 
 const router = express.Router();
 
@@ -49,7 +55,68 @@ router.delete("/session", requireAuth, async (req, res) => {
 router.post(
   "/campaigns/create",
   requireAuth,
+  // Handle both media files and audience files with correct storage
+  uploadCampaignFiles.fields([
+    { name: "mediaFile", maxCount: 1 },
+    { name: "audienceFile", maxCount: 1 },
+  ]),
+  // Debug middleware to check what's received
+  (req, res, next) => {
+    if (req.files) {
+      let totalFiles = 0;
+      Object.keys(req.files).forEach((fieldName) => {
+        const files = req.files[fieldName];
+        totalFiles += files.length;
+      });
+    }
+    next();
+  },
+  // Error handling middleware for multer
+  (err, req, res, next) => {
+    if (err instanceof multer.MulterError) {
+      console.error("Multer error:", err);
+      if (err.code === "LIMIT_FILE_COUNT") {
+        return res.status(400).json({
+          error: "Too many files",
+          message: `Expected maximum 2 files, received ${err.message}`,
+          details: {
+            code: err.code,
+            field: err.field,
+            limit: err.limit,
+          },
+        });
+      }
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.status(400).json({
+          error: "File too large",
+          message: `File size exceeds limit: ${err.message}`,
+          details: {
+            code: err.code,
+            field: err.field,
+            limit: err.limit,
+          },
+        });
+      }
+      return res.status(400).json({
+        error: "File upload error",
+        message: err.message,
+        code: err.code,
+      });
+    }
+    next();
+  },
   CampaignController.createCampaign
 );
+
+// TEMPLATE ROUTES
+router.post(
+  "/templates/create",
+  requireAuth,
+  // Handle media file uploads for templates using existing middleware
+  uploadMedia.single("mediaFile"),
+  TemplateController.createTemplate
+);
+
+router.get("/templates", requireAuth, TemplateController.getTemplates);
 
 export default router;
