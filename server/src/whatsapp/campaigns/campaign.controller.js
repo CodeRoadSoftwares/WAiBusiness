@@ -8,6 +8,8 @@ const createCampaign = async (req, res) => {
       !req.body.campaignType ||
       (req.body.audienceType === "upload" && !req.files?.audienceFile) ||
       (req.body.audienceType === "existing" && !req.body.existingAudienceId) ||
+      (req.body.audienceType === "manual" &&
+        !req.body.manualPhoneNumbers?.trim()) ||
       (req.body.messageType === "text" && !req.body.messageContent) ||
       (req.body.messageType === "media" && !req.files?.mediaFile) ||
       (req.body.messageType === "template" && !req.body.templateId) ||
@@ -24,6 +26,9 @@ const createCampaign = async (req, res) => {
           existingAudienceId:
             req.body.audienceType === "existing" &&
             !req.body.existingAudienceId,
+          manualPhoneNumbers:
+            req.body.audienceType === "manual" &&
+            !req.body.manualPhoneNumbers?.trim(),
           messageContent:
             (req.body.messageType === "text" ||
               req.body.messageType === "mixed") &&

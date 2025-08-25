@@ -34,9 +34,16 @@ const createCampaignManager = async (userId, campaignData, files = {}) => {
           if (files.audienceFile && files.audienceFile[0]) {
             const audienceFile = files.audienceFile[0];
 
-            // Get availableMergeFields from campaign data
-            const availableMergeFields =
-              campaignData.availableMergeFields || [];
+            // Get availableMergeFields from campaign data and parse if it's a JSON string
+            let availableMergeFields = campaignData.availableMergeFields || [];
+            if (typeof availableMergeFields === "string") {
+              try {
+                availableMergeFields = JSON.parse(availableMergeFields);
+              } catch (error) {
+                console.warn("Failed to parse availableMergeFields:", error);
+                availableMergeFields = [];
+              }
+            }
 
             audienceData = await AudienceFileProcessor.processAudienceFile(
               audienceFile.buffer,
@@ -66,6 +73,39 @@ const createCampaignManager = async (userId, campaignData, files = {}) => {
             };
           } else {
             throw new Error("Existing audience ID is required");
+          }
+        } else if (campaignData.audienceType === "manual") {
+          // Process manually entered phone numbers
+          if (
+            campaignData.manualPhoneNumbers &&
+            campaignData.manualPhoneNumbers.trim()
+          ) {
+            const phoneNumbers = campaignData.manualPhoneNumbers
+              .split(",")
+              .map((num) => num.trim())
+              .filter((num) => num.length > 0);
+
+            if (phoneNumbers.length === 0) {
+              throw new Error("Please enter at least one valid phone number");
+            }
+
+            // Convert phone numbers to audience format with proper structure
+            const audience = phoneNumbers.map((phone) => ({
+              phone: phone,
+              name: phone, // Use phone as name if no name provided
+              variables: {}, // Empty variables object that getAudienceStats expects
+            }));
+
+            console.log("Audience data:", audience);
+
+            audienceData = {
+              audience: audience,
+              validRows: audience.length,
+              totalRows: audience.length,
+              invalidRows: 0,
+            };
+          } else {
+            throw new Error("Please enter phone numbers manually");
           }
         }
 
@@ -208,9 +248,10 @@ const createCampaignManager = async (userId, campaignData, files = {}) => {
           campaignData.saveAudienceForFuture === "true" ||
           campaignData.saveAudienceForFuture === true
         ) {
-          // Only save audience if it's from file upload (not from existing audience)
+          // Save audience if it's from file upload or manual entry (not from existing audience)
           if (
-            campaignData.audienceType === "upload" &&
+            (campaignData.audienceType === "upload" ||
+              campaignData.audienceType === "manual") &&
             audienceData?.audience
           ) {
             let audienceDataForModel = {};

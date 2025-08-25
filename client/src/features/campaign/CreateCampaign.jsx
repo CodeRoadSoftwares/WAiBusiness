@@ -67,6 +67,13 @@ const CreateCampaignButton = ({ formData, onFormReset }) => {
       errors.push("Please select an existing audience");
     }
 
+    if (
+      formData.audienceType === "manual" &&
+      !formData.manualPhoneNumbers?.trim()
+    ) {
+      errors.push("Please enter phone numbers manually");
+    }
+
     if (formData.audienceContactCount === 0) {
       errors.push("No contacts found in the audience");
     }
@@ -144,6 +151,10 @@ const CreateCampaignButton = ({ formData, onFormReset }) => {
         "saveAudienceForFuture",
         formData.saveAudienceForFuture
       );
+      campaignFormData.append(
+        "manualPhoneNumbers",
+        formData.manualPhoneNumbers
+      );
       campaignFormData.append("messageType", formData.messageType);
       campaignFormData.append("messageContent", formData.messageContent);
       campaignFormData.append("templateId", formData.templateId);
@@ -190,7 +201,7 @@ const CreateCampaignButton = ({ formData, onFormReset }) => {
         console.warn("⚠️ Duplicate keys found:", duplicates);
       }
 
-      const result = await createCampaign(campaignFormData).unwrap();
+      await createCampaign(campaignFormData).unwrap();
 
       // Show success dialog
       setShowSuccessDialog(true);
@@ -456,6 +467,9 @@ function CreateCampaign() {
                 : formData.audienceType === "existing" &&
                   formData.existingAudienceId
                 ? "Audience Set"
+                : formData.audienceType === "manual" &&
+                  formData.manualPhoneNumbers?.trim()
+                ? "Manual Entry"
                 : "Not Set"
             }
           >
