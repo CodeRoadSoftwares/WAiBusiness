@@ -403,14 +403,22 @@ const AudienceSection = ({ formData, onFormChange }) => {
     console.log("Existing audience selected:", audienceId);
     onFormChange("existingAudienceId", audienceId);
 
-    // Find the selected audience and update contact count
+    // Find the selected audience and update contact count and merge fields
     if (audienceData?.audiences) {
       const selectedAudience = audienceData.audiences.find(
         (audience) => audience._id === audienceId
       );
       if (selectedAudience) {
         onFormChange("audienceContactCount", selectedAudience.count || 0);
+        onFormChange(
+          "availableMergeFields",
+          selectedAudience.availableMergeFields || []
+        );
         console.log("Updated contact count:", selectedAudience.count || 0);
+        console.log(
+          "Updated merge fields:",
+          selectedAudience.availableMergeFields || []
+        );
       }
     }
   };
@@ -515,28 +523,30 @@ const AudienceSection = ({ formData, onFormChange }) => {
             </div>
           </div>
 
-          {/* Available Merge Fields */}
-          {/* {formData.availableMergeFields.length > 0 && (
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-wa-text-primary-light dark:text-wa-text-primary-dark flex items-center">
-                <FileText className="w-4 h-4 mr-2 text-wa-icon-light dark:text-wa-icon-dark" />
-                Personalization Fields
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {formData.availableMergeFields.map((field, index) => (
-                  <span
-                    key={index}
-                    className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium mr-2 mb-2 bg-gray-50 border cursor-default"
-                  >
-                    {field.label}
-                  </span>
-                ))}
+          {/* Available Variables from File */}
+          {formData.availableMergeFields &&
+            formData.availableMergeFields.length > 0 && (
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-wa-text-primary-light dark:text-wa-text-primary-dark flex items-center">
+                  <FileText className="w-4 h-4 mr-2 text-wa-icon-light dark:text-wa-icon-dark" />
+                  Available Variables from File
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {formData.availableMergeFields.map((field, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300"
+                    >
+                      {field.label}
+                    </span>
+                  ))}
+                </div>
+                <p className="text-xs text-wa-text-secondary-light dark:text-wa-text-secondary-dark">
+                  These variables can be used in your message for
+                  personalization.
+                </p>
               </div>
-              <p className="text-xs text-wa-text-secondary-light dark:text-wa-text-secondary-dark">
-                You can use these fields to personalize your message for each recipient.
-              </p>
-            </div>
-          )} */}
+            )}
         </div>
       )}
 
@@ -583,72 +593,174 @@ const AudienceSection = ({ formData, onFormChange }) => {
 
   const renderExistingAudienceForm = () => (
     <div className="space-y-4">
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-wa-text-primary-light dark:text-wa-text-primary-dark flex items-center">
-          <Users className="w-4 h-4 mr-2 text-wa-icon-light dark:text-wa-icon-dark" />
-          Select Existing Audience <span className="text-red-500 ml-1">*</span>
-        </label>
-        <div className="space-y-3">
-          {/* Audience Selection with Search */}
-          <Select
-            value={formData.existingAudienceId || ""}
-            onValueChange={handleExistingAudienceSelection}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Search and select an audience" />
-            </SelectTrigger>
-            <SelectContent>
-              <div className="p-2">
-                <div className="relative">
-                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search audiences..."
-                    className="pl-8"
-                    value={audienceSearch}
-                    onChange={(e) => {
-                      setAudienceSearch(e.target.value);
-                    }}
-                  />
+      {!formData.existingAudienceId ? (
+        // Show audience selection when none is selected
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-wa-text-primary-light dark:text-wa-text-primary-dark flex items-center">
+            <Users className="w-4 h-4 mr-2 text-wa-icon-light dark:text-wa-icon-dark" />
+            Select Existing Audience{" "}
+            <span className="text-red-500 ml-1">*</span>
+          </label>
+          <div className="space-y-3">
+            {/* Audience Selection with Search */}
+            <Select
+              value={formData.existingAudienceId || ""}
+              onValueChange={handleExistingAudienceSelection}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Search and select an audience" />
+              </SelectTrigger>
+              <SelectContent>
+                <div className="p-2">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search audiences..."
+                      className="pl-8"
+                      value={audienceSearch}
+                      onChange={(e) => {
+                        setAudienceSearch(e.target.value);
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="max-h-[200px] overflow-y-auto">
+                  {isLoadingAudiences ? (
+                    <div className="flex items-center justify-center p-4">
+                      <Spinner size={20} theme="brand" />
+                      <span className="ml-2 text-sm text-gray-500">
+                        Loading...
+                      </span>
+                    </div>
+                  ) : audienceError ? (
+                    <div className="p-4 text-center text-sm text-red-500">
+                      Failed to load audiences
+                    </div>
+                  ) : audienceData?.audiences?.length === 0 ? (
+                    <div className="p-4 text-center text-sm text-gray-500">
+                      {audienceSearch
+                        ? "No audiences found matching your search"
+                        : "No audiences available"}
+                    </div>
+                  ) : (
+                    audienceData?.audiences?.map((audience) => (
+                      <SelectItem key={audience._id} value={audience._id}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{audience.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {audience.count || 0} contacts • Last used{" "}
+                            {audience.lastUsed
+                              ? longAgo(audience.lastUsed)
+                              : "Never"}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))
+                  )}
+                </div>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      ) : (
+        // Show selected audience details
+        <div className="space-y-4">
+          {/* Audience Information */}
+          <div className="bg-wa-brand/5 dark:bg-wa-brand/10 p-4 rounded-lg border border-wa-brand/20">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center space-x-3">
+                <Users className="w-5 h-5 text-wa-brand" />
+                <div>
+                  <h4 className="font-medium text-wa-text-primary-light dark:text-wa-text-primary-dark">
+                    {audienceData?.audiences?.find(
+                      (a) => a._id === formData.existingAudienceId
+                    )?.name || "Selected Audience"}
+                  </h4>
+                  <p className="text-sm text-wa-text-secondary-light dark:text-wa-text-secondary-dark">
+                    {formData.audienceContactCount || 0} contacts • Existing
+                    audience
+                  </p>
                 </div>
               </div>
-              <div className="max-h-[200px] overflow-y-auto">
-                {isLoadingAudiences ? (
-                  <div className="flex items-center justify-center p-4">
-                    <Spinner size={20} theme="brand" />
-                    <span className="ml-2 text-sm text-gray-500">
-                      Loading...
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  onFormChange("existingAudienceId", "");
+                  onFormChange("audienceContactCount", 0);
+                  onFormChange("availableMergeFields", []);
+                }}
+                className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+              >
+                <Trash className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Available Variables from Audience */}
+          {formData.availableMergeFields &&
+            formData.availableMergeFields.length > 0 && (
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-wa-text-primary-light dark:text-wa-text-primary-dark flex items-center">
+                  <FileText className="w-4 h-4 mr-2 text-wa-icon-light dark:text-wa-icon-dark" />
+                  Available Variables from Audience
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {formData.availableMergeFields.map((field, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300"
+                    >
+                      {field.label}
                     </span>
-                  </div>
-                ) : audienceError ? (
-                  <div className="p-4 text-center text-sm text-red-500">
-                    Failed to load audiences
-                  </div>
-                ) : audienceData?.audiences?.length === 0 ? (
-                  <div className="p-4 text-center text-sm text-gray-500">
-                    {audienceSearch
-                      ? "No audiences found matching your search"
-                      : "No audiences available"}
-                  </div>
-                ) : (
-                  audienceData?.audiences?.map((audience) => (
-                    <SelectItem key={audience._id} value={audience._id}>
-                      <div className="flex flex-col">
-                        <span className="font-medium">{audience.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {audience.count || 0} contacts • Last used{" "}
-                          {audience.lastUsed
-                            ? longAgo(audience.lastUsed)
-                            : "Never"}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))
-                )}
+                  ))}
+                </div>
+                <p className="text-xs text-wa-text-secondary-light dark:text-wa-text-secondary-dark">
+                  These variables can be used in your message for
+                  personalization.
+                </p>
               </div>
-            </SelectContent>
-          </Select>
+            )}
+
+          {/* Template-Audience Variable Mismatch Warning */}
+          {(() => {
+            // This will be populated from the parent component when template is selected
+            if (
+              !formData.templateId ||
+              !formData.availableMergeFields ||
+              formData.availableMergeFields.length === 0
+            ) {
+              return null;
+            }
+
+            // For now, we'll show a general note about ensuring compatibility
+            return (
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                <div className="flex items-start space-x-2">
+                  <svg
+                    className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <div className="text-sm text-amber-700 dark:text-amber-300">
+                    <span className="font-medium">Compatibility Note:</span>{" "}
+                    Ensure your audience has the variables used in your
+                    template. Variables not found in the audience will appear as
+                    plain text in messages. 
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
-      </div>
+      )}
     </div>
   );
 

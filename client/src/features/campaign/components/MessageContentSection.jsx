@@ -525,6 +525,10 @@ const MessageContentSection = ({
             {selectedTemplate.variables &&
               selectedTemplate.variables.length > 0 && (
                 <div className="space-y-2">
+                  <label className="text-sm font-medium text-wa-text-primary-light dark:text-wa-text-primary-dark flex items-center ">
+                    <FileText className="w-4 h-4 mr-2 text-wa-icon-light dark:text-wa-icon-dark" />
+                    Variables used in template
+                  </label>
                   <div className="flex flex-wrap gap-2">
                     {selectedTemplate.variables.map((variable, index) => (
                       <span
@@ -535,12 +539,100 @@ const MessageContentSection = ({
                       </span>
                     ))}
                   </div>
-                  <p className="text-sm text-red-500 font-semibold dark:text-400">
-                    Ensure your audience has all these fields to avoid sending
-                    unreadable or meaningless messages!
-                  </p>
                 </div>
               )}
+
+            {/* Template-Audience Variable Mismatch Warning */}
+            {(() => {
+              // Get audience variables
+              const audienceVariables = formData.availableMergeFields.map(
+                (field) => field.field
+              );
+
+              // Find variables in template that are not in audience
+              const missingVariables = selectedTemplate.variables.filter(
+                (templateVar) => !audienceVariables.includes(templateVar)
+              );
+
+              if (
+                !selectedTemplate?.variables ||
+                (formData.audienceType === "existing" &&
+                  !formData.existingAudienceId) ||
+                (formData.audienceType === "upload" && !formData.audienceFile)
+                // !formData.availableMergeFields ||
+                // formData.availableMergeFields.length === 0
+              ) {
+                return null;
+              }
+
+              if (
+                formData.audienceType == "manual" &&
+                selectedTemplate?.variables?.length > 0
+              ) {
+                return (
+                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                    <div className="flex items-start space-x-2">
+                      <svg
+                        className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      <div className="text-sm text-amber-700 dark:text-amber-300">
+                        <span className="font-medium">Not Recommended!</span>{" "}
+                        Using a template with variables and a manual audience is not recommended. The variables in your template will appear as plain text in messages. 
+                        <br />
+                        Choose a different template without variables or to keep this template, you can:
+                        <ul className="list-disc pl-5 mt-1">
+                          <li>Upload an audience file (CSV/Excel) that includes these variables, or</li>
+                          <li>Select an existing audience that contains these variables.</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              if (missingVariables.length > 0) {
+                return (
+                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+                    <div className="flex items-start space-x-2">
+                      <svg
+                        className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      <div className="text-sm text-red-700 dark:text-red-300">
+                        <span className="font-medium">
+                          Variable Mismatch Detected!
+                        </span>{" "}
+                        Your template uses variables that your audience doesn't
+                        have:{" "}
+                        <code className="bg-red-100 dark:bg-red-800 px-1 rounded font-mono">
+                          {missingVariables.join(", ")}
+                        </code>
+                        . These will appear as plain text in messages, making
+                        them unreadable. Consider choosing a different template
+                        or audience.
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              return null;
+            })()}
           </div>
         )}
       </div>
