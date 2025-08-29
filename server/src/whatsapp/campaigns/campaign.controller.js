@@ -1,4 +1,5 @@
 import { CampaignManager } from "./managers/campaign.manager.js";
+import { launchCampaign } from "./services/launchCampaign.service.js";
 
 const createCampaign = async (req, res) => {
   try {
@@ -49,6 +50,8 @@ const createCampaign = async (req, res) => {
       req.body,
       req.files
     );
+
+    await launchCampaign(result.campaign._id);
 
     res.status(201).json({
       success: true,

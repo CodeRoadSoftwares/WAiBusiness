@@ -793,7 +793,7 @@ const MessageContentSection = ({
                   type="file"
                   id={`mixed-media-upload-${variantIndex}`}
                   className="hidden"
-                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
+                  accept="image/*,video/*,audio/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.oasis.opendocument.spreadsheet,text/plain,text/csv,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/zip,application/x-rar-compressed,application/x-7z-compressed,application/x-tar,.pdf,.doc,.docx,.txt,.csv,.xlsx,.xls,.ods,.ppt,.pptx,.zip,.rar,.7z,.tar"
                   onChange={(e) => {
                     console.log(
                       "Mixed media file input onChange triggered:",

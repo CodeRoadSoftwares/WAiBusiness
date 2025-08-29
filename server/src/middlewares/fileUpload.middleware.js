@@ -56,12 +56,62 @@ const fileFilter = (req, file, cb) => {
     "text/csv",
     "application/vnd.ms-excel",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    // Add more CSV MIME types that browsers might send
+    "text/plain",
+    "application/csv",
+    "text/comma-separated-values",
+    "application/vnd.ms-excel.sheet.macroEnabled.12",
+    "application/vnd.ms-excel.sheet.binary.macroEnabled.12",
   ];
 
-  if (allowedTypes.includes(file.mimetype)) {
+  // Also check file extension as fallback
+  const fileName = file.originalname.toLowerCase();
+  const extension = path.extname(fileName);
+  const allowedExtensions = [
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".webp",
+    ".mp4",
+    ".avi",
+    ".mov",
+    ".wmv",
+    ".mp3",
+    ".wav",
+    ".m4a",
+    ".pdf",
+    ".doc",
+    ".docx",
+    ".csv",
+    ".xls",
+    ".xlsx",
+    ".txt",
+  ];
+
+  if (
+    allowedTypes.includes(file.mimetype) ||
+    allowedExtensions.includes(extension)
+  ) {
+    // Log file details for debugging
+    console.log("File upload accepted:", {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      extension: extension,
+      fieldname: file.fieldname,
+    });
     cb(null, true);
   } else {
-    cb(new Error(`File type ${file.mimetype} is not allowed`), false);
+    console.log("File upload rejected:", {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      extension: extension,
+      fieldname: file.fieldname,
+    });
+    cb(
+      new Error(`File type ${file.mimetype} (${extension}) is not allowed`),
+      false
+    );
   }
 };
 

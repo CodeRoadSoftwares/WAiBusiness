@@ -17,8 +17,6 @@ const createCampaignManager = async (userId, campaignData, files = {}) => {
   try {
     const campaign = await TransactionManager.executeTransaction(
       async (session) => {
-        console.log("Campaign data:", campaignData);
-
         let campaignDataForModel = {};
         campaignDataForModel.userId = userId;
         campaignDataForModel.name = campaignData.name;
@@ -150,6 +148,27 @@ const createCampaignManager = async (userId, campaignData, files = {}) => {
             if (files.mediaFile && files.mediaFile[0]) {
               const mediaFile = files.mediaFile[0];
 
+              // Debug logging
+              console.log("Media file details:", {
+                originalname: mediaFile.originalname,
+                mimetype: mediaFile.mimetype,
+                size: mediaFile.size,
+              });
+
+              // Correct MIME type for common file extensions
+              const fileName = mediaFile.originalname.toLowerCase();
+              if (fileName.endsWith(".csv")) {
+                mediaFile.mimetype = "text/csv";
+                console.log("Corrected MIME type for CSV file to: text/csv");
+              } else if (fileName.endsWith(".xlsx")) {
+                mediaFile.mimetype =
+                  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+                console.log("Corrected MIME type for XLSX file");
+              } else if (fileName.endsWith(".xls")) {
+                mediaFile.mimetype = "application/vnd.ms-excel";
+                console.log("Corrected MIME type for XLS file");
+              }
+
               // Save media file to disk only after validation passes
               const savedFile = await saveMediaFileToDisk(mediaFile);
               savedMediaFile = savedFile; // Track for potential cleanup
@@ -160,17 +179,66 @@ const createCampaignManager = async (userId, campaignData, files = {}) => {
                 media: {
                   url: savedFile.url,
                   type: (() => {
+                    const fileName = mediaFile.originalname.toLowerCase();
+                    const extension = path.extname(fileName);
+
+                    // Use extension as primary source of truth
+                    if (
+                      [
+                        ".jpg",
+                        ".jpeg",
+                        ".png",
+                        ".gif",
+                        ".webp",
+                        ".bmp",
+                        ".svg",
+                      ].includes(extension)
+                    )
+                      return "image";
+                    if (
+                      [
+                        ".mp4",
+                        ".avi",
+                        ".mov",
+                        ".wmv",
+                        ".flv",
+                        ".mkv",
+                        ".webm",
+                      ].includes(extension)
+                    )
+                      return "video";
+                    if (
+                      [
+                        ".mp3",
+                        ".wav",
+                        ".m4a",
+                        ".aac",
+                        ".ogg",
+                        ".flac",
+                      ].includes(extension)
+                    )
+                      return "audio";
+                    if (
+                      [
+                        ".csv",
+                        ".xlsx",
+                        ".xls",
+                        ".pdf",
+                        ".docx",
+                        ".doc",
+                        ".txt",
+                        ".rtf",
+                      ].includes(extension)
+                    )
+                      return "document";
+
+                    // Fallback to MIME type if extension not recognized
                     const mime = mediaFile.mimetype;
                     if (mime.startsWith("image/")) return "image";
                     if (mime.startsWith("video/")) return "video";
                     if (mime.startsWith("audio/")) return "audio";
-                    if (
-                      mime === "application/pdf" ||
-                      mime.startsWith("application/") ||
-                      mime.startsWith("text/")
-                    )
-                      return "document";
-                    // fallback
+
+                    // Default to document for other types
                     return "document";
                   })(),
                   fileName: mediaFile.originalname,
@@ -187,6 +255,27 @@ const createCampaignManager = async (userId, campaignData, files = {}) => {
             if (files.mediaFile && files.mediaFile[0]) {
               const mediaFile = files.mediaFile[0];
 
+              // Debug logging
+              console.log("Mixed media file details:", {
+                originalname: mediaFile.originalname,
+                mimetype: mediaFile.mimetype,
+                size: mediaFile.size,
+              });
+
+              // Correct MIME type for common file extensions
+              const fileName = mediaFile.originalname.toLowerCase();
+              if (fileName.endsWith(".csv")) {
+                mediaFile.mimetype = "text/csv";
+                console.log("Corrected MIME type for CSV file to: text/csv");
+              } else if (fileName.endsWith(".xlsx")) {
+                mediaFile.mimetype =
+                  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+                console.log("Corrected MIME type for XLSX file");
+              } else if (fileName.endsWith(".xls")) {
+                mediaFile.mimetype = "application/vnd.ms-excel";
+                console.log("Corrected MIME type for XLS file");
+              }
+
               // Save media file to disk only after validation passes
               const savedFile = await saveMediaFileToDisk(mediaFile);
               savedMediaFile = savedFile; // Track for potential cleanup
@@ -198,17 +287,66 @@ const createCampaignManager = async (userId, campaignData, files = {}) => {
                 media: {
                   url: savedFile.url,
                   type: (() => {
+                    const fileName = mediaFile.originalname.toLowerCase();
+                    const extension = path.extname(fileName);
+
+                    // Use extension as primary source of truth
+                    if (
+                      [
+                        ".jpg",
+                        ".jpeg",
+                        ".png",
+                        ".gif",
+                        ".webp",
+                        ".bmp",
+                        ".svg",
+                      ].includes(extension)
+                    )
+                      return "image";
+                    if (
+                      [
+                        ".mp4",
+                        ".avi",
+                        ".mov",
+                        ".wmv",
+                        ".flv",
+                        ".mkv",
+                        ".webm",
+                      ].includes(extension)
+                    )
+                      return "video";
+                    if (
+                      [
+                        ".mp3",
+                        ".wav",
+                        ".m4a",
+                        ".aac",
+                        ".ogg",
+                        ".flac",
+                      ].includes(extension)
+                    )
+                      return "audio";
+                    if (
+                      [
+                        ".csv",
+                        ".xlsx",
+                        ".xls",
+                        ".pdf",
+                        ".docx",
+                        ".doc",
+                        ".txt",
+                        ".rtf",
+                      ].includes(extension)
+                    )
+                      return "document";
+
+                    // Fallback to MIME type if extension not recognized
                     const mime = mediaFile.mimetype;
                     if (mime.startsWith("image/")) return "image";
                     if (mime.startsWith("video/")) return "video";
                     if (mime.startsWith("audio/")) return "audio";
-                    if (
-                      mime === "application/pdf" ||
-                      mime.startsWith("application/") ||
-                      mime.startsWith("text/")
-                    )
-                      return "document";
-                    // fallback
+
+                    // Default to document for other types
                     return "document";
                   })(),
                   fileName: mediaFile.originalname,

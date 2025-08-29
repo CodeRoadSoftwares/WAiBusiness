@@ -9,6 +9,12 @@ import WhatsappSession from "../whatsappsessions.model.js";
 import QRCode from "qrcode";
 import P from "pino";
 
+// Import functions from other services
+import { ensureWhatsappClient } from "./ensureWhatsappClient.service.js";
+import { warmUpWhatsappSessions } from "./warmUpSessions.service.js";
+
+const clientStates = {}; // userId -> "connecting" | "connected" | "failed"
+
 const activeSessions = new Map();
 const logger = P({ level: "warn" });
 
@@ -117,14 +123,96 @@ async function getMongoAuthState(userId) {
   return { state, saveCreds };
 }
 
+// Helper function to reset session for a user
+async function resetSessionForUser(userId) {
+  await WhatsappSession.updateOne(
+    { userId },
+    {
+      $set: {
+        sessionCreds: null,
+        sessionKeys: {},
+        status: "pairing",
+        errorReason: "session_reset",
+        isActive: true,
+        lastConnected: new Date(),
+      },
+    }
+  );
+}
+
+// Function to clean up stale connections
+export function cleanupStaleConnections() {
+  const now = Date.now();
+  const staleThreshold = 5 * 60 * 1000; // 5 minutes
+
+  for (const [userId, session] of activeSessions.entries()) {
+    if (
+      !session.ready &&
+      session.lastActivity &&
+      now - session.lastActivity > staleThreshold
+    ) {
+      console.log(`🧹 Cleaning up stale connection for user: ${userId}`);
+      try {
+        if (session.sock) {
+          session.sock.end();
+        }
+      } catch (error) {
+        console.error(
+          `Error ending stale connection for user ${userId}:`,
+          error
+        );
+      }
+      activeSessions.delete(userId);
+      clientStates[userId] = "disconnected";
+    }
+  }
+}
+
+// Start cleanup interval (only if not already started)
+if (!global.cleanupIntervalStarted) {
+  global.cleanupIntervalStarted = true;
+  setInterval(cleanupStaleConnections, 60000); // Run every minute
+  console.log("🧹 Started stale connection cleanup interval");
+}
+
 // -------- lifecycle --------
 export async function startWhatsappSession({ userId, socket }) {
   try {
+    // Check if user is already attempting to connect
+    if (clientStates[userId] === "connecting") {
+      console.log("⏳ User already attempting to connect:", userId);
+      return;
+    }
+
+    // If a session already exists, just reuse it
     if (activeSessions.has(userId)) {
-      try {
-        activeSessions.get(userId).end(new Error("restarting"));
-      } catch {}
+      const existingSession = activeSessions.get(userId);
+      if (existingSession.ready) {
+        console.log("🔄 Reusing existing active session for user:", userId);
+        return existingSession;
+      }
+      // If session exists but not ready, clean it up first
+      console.log("🧹 Cleaning up incomplete session for user:", userId);
       activeSessions.delete(userId);
+    }
+
+    // Check if we've had too many failed attempts for this user
+    if (!global.connectionAttempts) global.connectionAttempts = {};
+    if (!global.connectionAttempts[userId])
+      global.connectionAttempts[userId] = 0;
+
+    if (global.connectionAttempts[userId] >= 3) {
+      console.log(
+        `❌ Too many connection attempts for user ${userId}, forcing session reset`
+      );
+      await resetSessionForUser(userId);
+      global.connectionAttempts[userId] = 0; // Reset counter
+
+      socket.emit("whatsapp-session-update", {
+        status: "pairing",
+        errorReason: "max_attempts_reached",
+      });
+      return;
     }
 
     const { version } = await fetchLatestBaileysVersion();
@@ -140,15 +228,30 @@ export async function startWhatsappSession({ userId, socket }) {
       browser: ["Chrome (Linux)", "Chrome", "110.0.5481.77"],
       syncFullHistory: false,
       markOnlineOnConnect: false,
-      connectTimeoutMs: 60_000,
-      defaultQueryTimeoutMs: 30_000,
-      keepAliveIntervalMs: 30_000,
+      connectTimeoutMs: 120_000, // Increased timeout
+      defaultQueryTimeoutMs: 60_000, // Increased query timeout
+      keepAliveIntervalMs: 25_000, // Reduced keep alive interval
       logger,
       getMessage: async () => null,
       shouldIgnoreJid: () => false,
+      // Add retry logic for connection
+      retryRequestDelayMs: 1000,
+      maxRetries: 3,
     });
 
-    activeSessions.set(userId, sock);
+    activeSessions.set(userId, {
+      sock,
+      ready: false,
+      lastActivity: Date.now(),
+    });
+
+    // Add connection timeout handler
+    const connectionTimeout = setTimeout(() => {
+      if (!sock.user) {
+        console.log("⏰ Connection timeout for user:", userId);
+        sock.end();
+      }
+    }, 120_000);
 
     sock.ev.on("creds.update", async (update) => {
       console.log("🔐 creds.update:", Object.keys(update));
@@ -159,14 +262,22 @@ export async function startWhatsappSession({ userId, socket }) {
         console.log("🎉 Registration completed for:", state.creds.me);
       }
 
-      isSavingCreds = true;
-      await saveCreds();
-      isSavingCreds = false;
-      console.log(
-        "✅ saveCreds() completed (registered:",
-        !!state.creds.registered,
-        ")"
-      );
+      // Debounce credential saving to prevent race conditions
+      if (!isSavingCreds) {
+        isSavingCreds = true;
+        try {
+          await saveCreds();
+          console.log(
+            "✅ saveCreds() completed (registered:",
+            !!state.creds.registered,
+            ")"
+          );
+        } catch (error) {
+          console.error("❌ Error saving credentials:", error);
+        } finally {
+          isSavingCreds = false;
+        }
+      }
     });
 
     sock.ev.on("connection.update", async (update) => {
@@ -174,6 +285,7 @@ export async function startWhatsappSession({ userId, socket }) {
 
       if (qr && shouldShowQR(state.creds)) {
         console.log("📱 QR code generated, sending to frontend...");
+        clientStates[userId] = "connecting";
         const qrBase64 = await convertQRToBase64(qr);
         socket.emit("whatsapp-session-update", {
           status: "pairing",
@@ -181,7 +293,13 @@ export async function startWhatsappSession({ userId, socket }) {
         });
       }
 
+      if (connection === "connecting") {
+        clientStates[userId] = "connecting";
+        console.log("🔄 Connecting... for user:", userId);
+      }
+
       if (connection === "open") {
+        clearTimeout(connectionTimeout);
         const me = sock.user;
         const phoneNumber = me?.id?.split(":")?.[0];
 
@@ -199,16 +317,39 @@ export async function startWhatsappSession({ userId, socket }) {
         );
 
         console.log(`🟢 Connected for user ${userId}: ${phoneNumber}`);
+
+        clientStates[userId] = "connected";
+
+        // Reset connection attempts counter on successful connection
+        if (global.connectionAttempts && global.connectionAttempts[userId]) {
+          global.connectionAttempts[userId] = 0;
+          console.log(
+            `✅ Reset connection attempts counter for user ${userId}`
+          );
+        }
+
         socket.emit("whatsapp-session-update", {
           status: "connected",
           phoneNumber,
         });
+
+        const session = activeSessions.get(userId);
+        if (session) {
+          session.ready = true;
+          session.lastActivity = Date.now();
+        }
       }
 
       if (connection === "close") {
+        clearTimeout(connectionTimeout);
         const statusCode = lastDisconnect?.error?.output?.statusCode;
+        const errorMessage = lastDisconnect?.error?.message;
         console.log(`🔴 Closed [${statusCode}] for user ${userId}`);
+        console.log(`📝 Error message: ${errorMessage}`);
 
+        clientStates[userId] = "disconnected";
+
+        // Strategy 1: Handle restart required cases (preserve credentials)
         if (
           statusCode === DisconnectReason.restartRequired ||
           statusCode === 515
@@ -219,65 +360,267 @@ export async function startWhatsappSession({ userId, socket }) {
             await new Promise((r) => setTimeout(r, 100));
             tries++;
           }
-          setTimeout(() => startWhatsappSession({ userId, socket }), 500);
+
+          // Clean up current session but preserve credentials
+          activeSessions.delete(userId);
+
+          // Restart with delay to prevent rapid reconnection
+          setTimeout(() => startWhatsappSession({ userId, socket }), 1000);
+          return;
+        }
+
+        // Strategy 2: Handle timeout errors (try to recover without reset)
+        if (errorMessage === "Timed Out" || errorMessage?.includes("timeout")) {
+          console.log("⏰ Timeout detected, attempting recovery...");
+
+          // Wait for any pending credential saves to complete
+          let tries = 0;
+          while (isSavingCreds && tries < 50) {
+            await new Promise((r) => setTimeout(r, 100));
+            tries++;
+          }
+
+          // Try to recover with existing credentials first
+          if (state.creds.registered) {
+            console.log("🔄 Attempting recovery with existing credentials...");
+
+            // Clean up current session but preserve credentials
+            activeSessions.delete(userId);
+
+            // Attempt recovery with delay
+            setTimeout(() => {
+              startWhatsappSession({ userId, socket });
+            }, 2000);
+            return;
+          } else {
+            console.log("❌ No valid credentials, resetting session");
+            await resetSessionForUser(userId);
+            socket.emit("whatsapp-session-update", {
+              status: "pairing",
+              errorReason: "no_credentials",
+            });
+            return;
+          }
+        }
+
+        // Strategy 2.5: Handle 401 with specific error messages that indicate device removal
+        if (
+          statusCode === 401 &&
+          (errorMessage === "Connection Failure" ||
+            errorMessage?.includes("device_removed") ||
+            errorMessage?.includes("conflict"))
+        ) {
+          console.log(
+            "🚫 Device removed from WhatsApp - forcing session reset"
+          );
+
+          // Increment connection attempts counter
+          if (!global.connectionAttempts) global.connectionAttempts = {};
+          if (!global.connectionAttempts[userId])
+            global.connectionAttempts[userId] = 0;
+          global.connectionAttempts[userId]++;
+
+          // Clean up connection attempts counter since we're resetting
+          if (global.connectionAttempts[userId] >= 3) {
+            delete global.connectionAttempts[userId];
+            console.log(
+              `🧹 Cleaned up connection attempts counter for user ${userId} after device removal`
+            );
+          }
+
+          // Force reset session for device removal
+          await resetSessionForUser(userId);
+
+          socket.emit("whatsapp-session-update", {
+            status: "pairing",
+            errorReason: "device_removed",
+          });
+
+          activeSessions.delete(userId);
           return;
         }
 
         if (statusCode === 401) {
           console.log(
-            "🔐 401 — unauthorized; resetting session for re-pairing"
+            "🔐 401 — unauthorized; attempting recovery before reset..."
           );
 
-          // Clear old creds so Baileys will force QR generation next time
+          // Increment connection attempts counter
+          if (!global.connectionAttempts) global.connectionAttempts = {};
+          if (!global.connectionAttempts[userId])
+            global.connectionAttempts[userId] = 0;
+          global.connectionAttempts[userId]++;
+
+          // Try to recover first if we have valid credentials
+          if (state.creds.registered) {
+            console.log("🔄 Attempting recovery with existing credentials...");
+
+            // Clean up current session but preserve credentials
+            activeSessions.delete(userId);
+
+            // Attempt recovery with delay
+            setTimeout(() => {
+              startWhatsappSession({ userId, socket });
+            }, 3000);
+            return;
+          } else {
+            console.log(
+              "❌ No valid credentials, resetting session for re-pairing"
+            );
+
+            // Clear old creds so Baileys will force QR generation next time
+            await WhatsappSession.updateOne(
+              { userId },
+              {
+                $set: {
+                  sessionCreds: null,
+                  sessionKeys: {},
+                  status: "pairing", // so frontend knows to show QR
+                  errorReason: "unauthorized",
+                  isActive: true, // still active, just needs re-pair
+                  lastConnected: new Date(),
+                },
+              }
+            );
+
+            // Tell frontend to expect QR again
+            socket.emit("whatsapp-session-update", {
+              status: "pairing",
+              errorReason: "unauthorized",
+            });
+
+            // Clean up from active sessions so next start will reload properly
+            activeSessions.delete(userId);
+
+            startWhatsappSession({ userId, socket });
+            return;
+          }
+        }
+
+        if (statusCode === 428) {
+          console.log(
+            "⚠️ 428 — session expired, attempting recovery before reset..."
+          );
+
+          // Try to recover first if we have valid credentials
+          if (state.creds.registered) {
+            console.log("🔄 Attempting recovery with existing credentials...");
+
+            // Clean up current session but preserve credentials
+            activeSessions.delete(userId);
+
+            // Attempt recovery with delay
+            setTimeout(() => {
+              startWhatsappSession({ userId, socket });
+            }, 3000);
+            return;
+          } else {
+            console.log("❌ No valid credentials, resetting session...");
+
+            await WhatsappSession.updateOne(
+              { userId },
+              {
+                $set: {
+                  sessionCreds: null,
+                  sessionKeys: {},
+                  status: "pairing",
+                  errorReason: "session_expired",
+                  isActive: true,
+                  lastConnected: new Date(),
+                },
+              }
+            );
+
+            activeSessions.delete(userId);
+            socket.emit("whatsapp-session-update", {
+              status: "pairing",
+              reason: "session_expired",
+            });
+            startWhatsappSession({ userId, socket });
+            return;
+          }
+        }
+
+        // Strategy 3: Handle logged out case
+        const isLoggedOut = statusCode === DisconnectReason.loggedOut;
+        if (isLoggedOut) {
+          console.log("🚪 User logged out from WhatsApp app");
+
+          // Clean up connection attempts counter
+          if (global.connectionAttempts && global.connectionAttempts[userId]) {
+            delete global.connectionAttempts[userId];
+            console.log(
+              `🧹 Cleaned up connection attempts counter for user ${userId}`
+            );
+          }
+
           await WhatsappSession.updateOne(
             { userId },
             {
               $set: {
-                sessionCreds: null,
-                sessionKeys: {},
-                status: "pairing", // so frontend knows to show QR
-                errorReason: "unauthorized",
-                isActive: true, // still active, just needs re-pair
-                lastConnected: new Date(),
+                status: "disconnected",
+                errorReason: "user_logged_out",
+                isActive: false,
               },
             }
           );
 
-          // Tell frontend to expect QR again
           socket.emit("whatsapp-session-update", {
-            status: "pairing",
-            errorReason: "unauthorized",
+            status: "disconnected",
+            reason: "user_logged_out",
           });
 
-          // Clean up from active sessions so next start will reload properly
           activeSessions.delete(userId);
-
-          startWhatsappSession({ userId, socket });
           return;
         }
-        const isLoggedOut = statusCode === DisconnectReason.loggedOut;
-        await WhatsappSession.updateOne(
-          { userId },
-          {
-            $set: {
-              status: isLoggedOut ? "disconnected" : "error",
-              errorReason: String(statusCode || "unknown"),
-              isActive: false,
-            },
-          }
-        );
 
-        socket.emit("whatsapp-session-update", {
-          status: "disconnected",
-          reason: String(statusCode || "unknown"),
-        });
+        // Strategy 4: Handle other errors (try to recover if possible)
+        console.log(`⚠️ Unknown error ${statusCode}, attempting recovery...`);
 
-        activeSessions.delete(userId);
+        if (state.creds.registered) {
+          console.log("🔄 Attempting recovery with existing credentials...");
+
+          // Clean up current session but preserve credentials
+          activeSessions.delete(userId);
+
+          // Attempt recovery with delay
+          setTimeout(() => {
+            startWhatsappSession({ userId, socket });
+          }, 5000);
+          return;
+        } else {
+          console.log("❌ No valid credentials, marking as error");
+          await WhatsappSession.updateOne(
+            { userId },
+            {
+              $set: {
+                status: "error",
+                errorReason: String(statusCode || "unknown"),
+                isActive: false,
+              },
+            }
+          );
+
+          socket.emit("whatsapp-session-update", {
+            status: "disconnected",
+            reason: String(statusCode || "unknown"),
+          });
+
+          activeSessions.delete(userId);
+        }
       }
     });
 
     sock.ev.on("error", (err) => {
       console.error("⚠️ Socket error:", err?.message || err);
+
+      // Only handle critical errors that require connection closure
+      if (err?.message === "Timed Out" || err?.message?.includes("timeout")) {
+        console.log(
+          "⏰ Critical timeout error detected, closing connection..."
+        );
+        sock.end();
+      }
     });
   } catch (error) {
     console.error("❌ Failed to start session:", error?.message || error);
@@ -287,15 +630,18 @@ export async function startWhatsappSession({ userId, socket }) {
         error: String(error?.message || error),
       });
     } catch {}
+
+    // Clean up on error
+    activeSessions.delete(userId);
   }
 }
 
 // Explicit user stop (logout)
 export async function stopWhatsappSession(userId) {
-  const sock = activeSessions.get(userId);
-  if (sock) {
+  const session = activeSessions.get(userId);
+  if (session?.sock) {
     try {
-      await sock.logout();
+      await session.sock.logout();
       console.log("🚪 Logged out for user:", userId);
     } catch (e) {
       console.warn("⚠️ Logout error:", e?.message || e);
@@ -323,3 +669,19 @@ export function getWhatsappSessionStatus(userId) {
     status: activeSessions.has(userId) ? "active" : "inactive",
   };
 }
+
+// Return active socket for a given userId
+export function getWhatsappClient(userId) {
+  const session = activeSessions.get(userId);
+  if (session && session.ready) {
+    return session.sock;
+  }
+  return null; // not ready yet
+}
+
+export function getClientState(userId) {
+  return clientStates[userId] || "unknown";
+}
+
+// Export functions from other services
+export { ensureWhatsappClient, warmUpWhatsappSessions };

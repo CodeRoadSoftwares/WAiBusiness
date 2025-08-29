@@ -10,6 +10,8 @@ import AuthRoutes from "./src/auth/auth.routes.js";
 import WhatsappRoutes from "./src/whatsapp/whatsapp.routes.js";
 import AudienceRoutes from "./src/whatsapp/audience/audience.routes.js";
 import createSocketServer from "./src/realtime/socket.js";
+import { warmUpWhatsappSessions } from "./src/whatsapp/sessions/services/whatsappsession.service.js";
+import "./src/queue/workers/campaign.worker.js"; // no need to keep a ref
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -52,9 +54,12 @@ console.log("Socket.IO server attached to HTTP server");
 async function start() {
   try {
     await connectDB();
-    server.listen(PORT, () => {
+
+    server.listen(PORT, async () => {
       console.log(`[server] listening on http://localhost:${PORT}`);
       console.log(`[server] Socket.IO server ready on port ${PORT}`);
+      await warmUpWhatsappSessions();
+      console.log("Warm up WhatsApp sessions completed");
     });
   } catch (error) {
     console.error("[server] failed to start:", error);
