@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/button";
 import { useGetAuthStatusQuery } from "@/features/auth/api/authApi";
 import { useCreateCampaignMutation } from "./api/campaignApi";
 import { CgAttachment } from "react-icons/cg";
+import { DateTime } from "luxon";
 import {
   MdCampaign,
   MdOutlineAttachment,
@@ -167,7 +168,12 @@ const CreateCampaignButton = ({ formData, onFormReset }) => {
       campaignFormData.append("randomDelay", formData.randomDelay);
       campaignFormData.append("autoRetry", formData.autoRetry);
       campaignFormData.append("scheduleType", formData.scheduleType);
-      campaignFormData.append("scheduledDate", formData.scheduledDate);
+      campaignFormData.append(
+        "scheduledDate",
+        formData.scheduledDate
+          ? formData.scheduledDate.toLocaleString("sv-SE")
+          : ""
+      );
       campaignFormData.append("timeZone", formData.timeZone);
       campaignFormData.append("customDelay", formData.customDelay);
       campaignFormData.append("delayUnit", formData.delayUnit);

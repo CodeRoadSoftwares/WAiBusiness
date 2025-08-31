@@ -368,18 +368,24 @@ const createCampaignManager = async (userId, campaignData, files = {}) => {
         }
 
         if (campaignData.scheduleType == "scheduled") {
+
           campaignDataForModel.scheduleType = "scheduled";
-          campaignDataForModel.scheduledDate = campaignData.scheduledDate;
           campaignDataForModel.timeZone = campaignData.timeZone;
+          campaignDataForModel.scheduledDate = campaignData.scheduledDate;
           campaignDataForModel.status = "scheduled";
+
         } else if (campaignData.scheduleType == "delayed") {
+
           campaignDataForModel.scheduleType = "delayed";
           campaignDataForModel.customDelay = campaignData.customDelay;
           campaignDataForModel.delayUnit = campaignData.delayUnit;
           campaignDataForModel.status = "scheduled";
+
         } else if (campaignData.scheduleType == "immediate") {
+
           campaignDataForModel.scheduleType = "immediate";
           campaignDataForModel.status = "running";
+          
         }
 
         if (

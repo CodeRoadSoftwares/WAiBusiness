@@ -1,5 +1,6 @@
 import { campaignQueue } from "../../../queue/queues/campaign.queue.js";
 import { CampaignManager } from "../managers/campaign.manager.js";
+import { DateTime } from "luxon";
 
 export const launchCampaign = async (campaignId) => {
   const campaign = await CampaignManager.getCampaignByIdManager(campaignId);
@@ -36,6 +37,24 @@ export const launchCampaign = async (campaignId) => {
     }
   } else if (campaign.scheduleType === "scheduled") {
     campaign.status = "scheduled";
+
+    // Parse the time string as if it's in the user's selected timezone
+    // User enters "9:00 AM" and selects "America/New_York"
+    // This means: "Run at 9:00 AM when it's 9:00 AM in New York timezone"
+    const scheduled = DateTime.fromFormat(
+      campaign.scheduledDate,
+      "yyyy-MM-dd HH:mm:ss",
+      { zone: campaign.timeZone }
+    ).toUTC();
+    const now = DateTime.utc();
+
+    const delay = scheduled.toMillis() - now.toMillis();
+
+    console.log("campaign.scheduledDate (string):", campaign.scheduledDate);
+    console.log("campaign.timeZone:", campaign.timeZone);
+    console.log("parsed scheduled (UTC):", scheduled.toISO());
+    console.log("delay:", delay);
+    console.log("delay in minutes:", delay / (1000 * 60));
     await campaign.save();
 
     await campaignQueue.add(
@@ -46,7 +65,7 @@ export const launchCampaign = async (campaignId) => {
         backoff: { type: "exponential", delay: 5000 },
         removeOnComplete: 1000,
         removeOnFail: 1000,
-        delay: campaign.scheduledDate - new Date(),
+        delay: delay,
       }
     );
   } else if (campaign.scheduleType === "delayed") {

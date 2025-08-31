@@ -44,6 +44,8 @@ const createCampaign = async (req, res) => {
       });
     }
 
+    console.log("req.body:", req.body);
+
     // Create campaign with files
     const result = await CampaignManager.createCampaignManager(
       req.user.id,

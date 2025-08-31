@@ -1,230 +1,268 @@
 [
   {
-    "value": "LINT",
-    "label": "Line Islands Time",
+    "value": "Pacific/Kiritimati",
+    "label": "Line Islands Time (LINT)",
     "description": "If campaigning in Kiribati (Kiritimati/Christmas Island)",
-    "offset": "+14:00"
+    "offset": "+14:00",
+    "offsetNum": 14
   },
   {
-    "value": "TOT",
-    "label": "Tonga Time",
+    "value": "Pacific/Tonga",
+    "label": "Tonga Time (TOT)",
     "description": "If campaigning in Tonga, Tokelau, Phoenix Islands (Kiribati), Samoa (during daylight saving)",
-    "offset": "+13:00"
+    "offset": "+13:00",
+    "offsetNum": 13
   },
   {
-    "value": "CHAST",
-    "label": "Chatham Island Standard Time",
+    "value": "Pacific/Chatham",
+    "label": "Chatham Island Standard Time (CHAST)",
     "description": "If campaigning in New Zealand (Chatham Islands)",
-    "offset": "+12:45"
+    "offset": "+12:45",
+    "offsetNum": 12.75
   },
   {
-    "value": "ANAT",
-    "label": "Anadyr Time",
+    "value": "Asia/Anadyr",
+    "label": "Anadyr Time (ANAT)",
     "description": "If campaigning in Russia (Anadyr), New Zealand (mainland), Fiji, Marshall Islands, Tuvalu, Wallis & Futuna, Nauru, Wake Island (USA), Kamchatka (Russia), Norfolk Island (Australia)",
-    "offset": "+12:00"
+    "offset": "+12:00",
+    "offsetNum": 12
   },
   {
-    "value": "SBT",
-    "label": "Solomon Islands Time",
+    "value": "Pacific/Solomon",
+    "label": "Solomon Islands Time (SBT)",
     "description": "If campaigning in Solomon Islands, New Caledonia, Vanuatu, Russia (Magadan), Federated States of Micronesia (Kosrae, Pohnpei), Papua New Guinea (Bougainville), Russia (Sakhalin)",
-    "offset": "+11:00"
+    "offset": "+11:00",
+    "offsetNum": 11
   },
   {
-    "value": "LHST",
-    "label": "Lord Howe Standard Time",
+    "value": "Australia/Lord_Howe",
+    "label": "Lord Howe Standard Time (LHST)",
     "description": "If campaigning in Australia (Lord Howe Island)",
-    "offset": "+10:30"
+    "offset": "+10:30",
+    "offsetNum": 10.5
   },
   {
-    "value": "AEST",
-    "label": "Australian Eastern Standard Time",
+    "value": "Australia/Sydney",
+    "label": "Australian Eastern Standard Time (AEST)",
     "description": "If campaigning in Australia (Melbourne, Sydney, Brisbane, Hobart, Canberra), Papua New Guinea (Port Moresby), Guam, Russia (Vladivostok), Northern Mariana Islands, Yakutsk (Russia), Chuuk (Micronesia)",
-    "offset": "+10:00"
+    "offset": "+10:00",
+    "offsetNum": 10
   },
   {
-    "value": "ACST",
-    "label": "Australian Central Standard Time",
+    "value": "Australia/Darwin",
+    "label": "Australian Central Standard Time (ACST)",
     "description": "If campaigning in Australia (Adelaide, Darwin, Broken Hill)",
-    "offset": "+09:30"
+    "offset": "+09:30",
+    "offsetNum": 9.5
   },
   {
-    "value": "JST",
-    "label": "Japan Standard Time",
+    "value": "Asia/Tokyo",
+    "label": "Japan Standard Time (JST)",
     "description": "If campaigning in Japan, South Korea, East Timor, Indonesia (Maluku, Papua), Russia (Yakutsk), Palau",
-    "offset": "+09:00"
+    "offset": "+09:00",
+    "offsetNum": 9
   },
   {
-    "value": "ACWST",
-    "label": "Australian Central Western Standard Time",
+    "value": "Australia/Eucla",
+    "label": "Australian Central Western Standard Time (ACWST)",
     "description": "If campaigning in Australia (Eucla, Western Australia southeast)",
-    "offset": "+08:45"
+    "offset": "+08:45",
+    "offsetNum": 8.75
   },
   {
-    "value": "CST",
-    "label": "China Standard Time",
+    "value": "Asia/Shanghai",
+    "label": "China Standard Time (CST)",
     "description": "If campaigning in China, Philippines, Malaysia, Singapore, Western Australia, Taiwan, Hong Kong, Macau, Brunei, Mongolia (Ulaanbaatar), Russia (Irkutsk), Western Indonesia (Bali, Jakarta)",
-    "offset": "+08:00"
+    "offset": "+08:00",
+    "offsetNum": 8
   },
   {
-    "value": "WIB",
-    "label": "Western Indonesia Time",
+    "value": "Asia/Jakarta",
+    "label": "Western Indonesia Time (WIB)",
     "description": "If campaigning in Indonesia (Jakarta, Sumatra, West & Central Kalimantan), Thailand, Vietnam, Cambodia, Laos, Christmas Island (Australia), Russia (Krasnoyarsk), Mongolia (Hovd)",
-    "offset": "+07:00"
+    "offset": "+07:00",
+    "offsetNum": 7
   },
   {
-    "value": "MMT",
-    "label": "Myanmar Time",
+    "value": "Asia/Yangon",
+    "label": "Myanmar Time (MMT)",
     "description": "If campaigning in Myanmar, Cocos Islands (Australia)",
-    "offset": "+06:30"
+    "offset": "+06:30",
+    "offsetNum": 6.5
   },
   {
-    "value": "BST",
-    "label": "Bangladesh Standard Time",
+    "value": "Asia/Dhaka",
+    "label": "Bangladesh Standard Time (BST)",
     "description": "If campaigning in Bangladesh, Bhutan, Kazakhstan (East), Kyrgyzstan, Russia (Omsk), British Indian Ocean Territory",
-    "offset": "+06:00"
+    "offset": "+06:00",
+    "offsetNum": 6
   },
   {
-    "value": "NPT",
-    "label": "Nepal Time",
+    "value": "Asia/Kathmandu",
+    "label": "Nepal Time (NPT)",
     "description": "If campaigning in Nepal",
-    "offset": "+05:45"
+    "offset": "+05:45",
+    "offsetNum": 5.75
   },
   {
-    "value": "IST",
-    "label": "Indian Standard Time",
+    "value": "Asia/Kolkata",
+    "label": "Indian Standard Time (IST)",
     "description": "If campaigning in India, Sri Lanka",
-    "offset": "+05:30"
+    "offset": "+05:30",
+    "offsetNum": 5.5
   },
   {
-    "value": "UZT",
-    "label": "Uzbekistan Time",
+    "value": "Asia/Tashkent",
+    "label": "Uzbekistan Time (UZT)",
     "description": "If campaigning in Uzbekistan, Pakistan, Kazakhstan (West), Maldives, Tajikistan, Turkmenistan, French Southern & Antarctic Lands, Kyrgyzstan (Osh), Russia (Yekaterinburg), Afghanistan (western border)",
-    "offset": "+05:00"
+    "offset": "+05:00",
+    "offsetNum": 5
   },
   {
-    "value": "AFT",
-    "label": "Afghanistan Time",
+    "value": "Asia/Kabul",
+    "label": "Afghanistan Time (AFT)",
     "description": "If campaigning in Afghanistan",
-    "offset": "+04:30"
+    "offset": "+04:30",
+    "offsetNum": 4.5
   },
   {
-    "value": "GST",
-    "label": "Gulf Standard Time",
+    "value": "Asia/Dubai",
+    "label": "Gulf Standard Time (GST)",
     "description": "If campaigning in United Arab Emirates, Oman, Azerbaijan, Armenia, Georgia, Mauritius, Seychelles, Reunion, Russia (Samara, Saratov, Ulyanovsk, Astrakhan, Volgograd)",
-    "offset": "+04:00"
+    "offset": "+04:00",
+    "offsetNum": 4
   },
   {
-    "value": "IRST",
-    "label": "Iran Standard Time",
+    "value": "Asia/Tehran",
+    "label": "Iran Standard Time (IRST)",
     "description": "If campaigning in Iran",
-    "offset": "+03:30"
+    "offset": "+03:30",
+    "offsetNum": 3.5
   },
   {
-    "value": "EEST",
-    "label": "Eastern European Summer Time",
+    "value": "Europe/Athens",
+    "label": "Eastern European Summer Time (EEST)",
     "description": "If campaigning in Greece, Egypt, Turkey, Romania, Bulgaria, Cyprus, Israel, Syria, Jordan, Lebanon, Finland, Estonia, Latvia, Lithuania, Moldova, Ukraine, Libya, Palestine, Sudan, South Sudan, Belarus, Russia (Kaliningrad), Somalia, Ethiopia, Kenya, Tanzania, Madagascar, Comoros, Djibouti, Eritrea, Uganda, Rwanda, Burundi, Malawi, Mozambique, Zambia, Zimbabwe, Botswana, South Africa, Lesotho, Swaziland, Democratic Republic of the Congo (east), Central African Republic, Chad, Cameroon, Gabon, Republic of the Congo, Angola, Namibia, Equatorial Guinea, São Tomé and Príncipe",
-    "offset": "+03:00"
+    "offset": "+03:00",
+    "offsetNum": 3
   },
   {
-    "value": "CEST",
-    "label": "Central European Summer Time",
+    "value": "Europe/Berlin",
+    "label": "Central European Summer Time (CEST)",
     "description": "If campaigning in Germany, France, Italy, Spain, Poland, Sweden, Norway, Denmark, Belgium, Netherlands, Switzerland, Austria, Czech Republic, Slovakia, Hungary, Slovenia, Croatia, Bosnia and Herzegovina, Serbia, Montenegro, Kosovo, Albania, North Macedonia, Luxembourg, Monaco, Andorra, San Marino, Vatican City, Liechtenstein, Malta, Tunisia, Algeria, Morocco, Western Sahara",
-    "offset": "+02:00"
+    "offset": "+02:00",
+    "offsetNum": 2
   },
   {
-    "value": "BST-UK",
-    "label": "British Summer Time",
+    "value": "Europe/London",
+    "label": "British Summer Time (BST)",
     "description": "If campaigning in United Kingdom, Ireland, Portugal (except Azores), Morocco (during daylight saving), Western Sahara (during daylight saving), Faroe Islands, Channel Islands, Isle of Man",
-    "offset": "+01:00"
+    "offset": "+01:00",
+    "offsetNum": 1
   },
   {
-    "value": "GMT",
-    "label": "Greenwich Mean Time",
+    "value": "Europe/Dublin",
+    "label": "Greenwich Mean Time (GMT)",
     "description": "If campaigning in Iceland, Ghana, Côte d'Ivoire, Burkina Faso, Gambia, Liberia, Mali, Mauritania, São Tomé and Príncipe, Senegal, Sierra Leone, Togo, Guinea, Guinea-Bissau, Western Sahara, Morocco (outside daylight saving), United Kingdom (outside daylight saving)",
-    "offset": "+00:00"
+    "offset": "+00:00",
+    "offsetNum": 0
   },
   {
-    "value": "CVT",
-    "label": "Cape Verde Time",
+    "value": "Atlantic/Cape_Verde",
+    "label": "Cape Verde Time (CVT)",
     "description": "If campaigning in most of Greenland (Ittoqqortoormiit), Cabo Verde",
-    "offset": "-01:00"
+    "offset": "-01:00",
+    "offsetNum": -1
   },
   {
-    "value": "GST-2",
-    "label": "South Georgia and the South Sandwich Islands Time",
+    "value": "Atlantic/South_Georgia",
+    "label": "South Georgia and the South Sandwich Islands Time (GST-2)",
     "description": "If campaigning in Pernambuco (Brazil), South Georgia and the South Sandwich Islands, some parts of Greenland",
-    "offset": "-02:00"
+    "offset": "-02:00",
+    "offsetNum": -2
   },
   {
-    "value": "NDT",
-    "label": "Newfoundland Daylight Time",
+    "value": "America/St_Johns",
+    "label": "Newfoundland Daylight Time (NDT)",
     "description": "If campaigning in Newfoundland and Labrador (Canada)",
-    "offset": "-02:30"
+    "offset": "-02:30",
+    "offsetNum": -2.5
   },
   {
-    "value": "ART",
-    "label": "Argentina Time",
+    "value": "America/Argentina/Buenos_Aires",
+    "label": "Argentina Time (ART)",
     "description": "If campaigning in most of Brazil, Argentina, Uruguay, Paraguay, French Guiana, Suriname, Falkland Islands, Chile (Magallanes), Saint Pierre and Miquelon",
-    "offset": "-03:00"
+    "offset": "-03:00",
+    "offsetNum": -3
   },
   {
-    "value": "EDT",
-    "label": "Eastern Daylight Time",
+    "value": "America/New_York",
+    "label": "Eastern Daylight Time (EDT)",
     "description": "If campaigning in regions of USA (East Coast), Canada (Ontario, Quebec), Bahamas, Haiti, Cuba, Jamaica, Dominican Republic, Panama, Colombia, Peru, Ecuador, Bolivia, Venezuela, Chile (Easter Island), Paraguay, Brazil (Brasilia), Trinidad and Tobago, Barbados, Saint Lucia, Saint Vincent and the Grenadines, Grenada, Dominica, Antigua and Barbuda, Saint Kitts and Nevis, Puerto Rico, US Virgin Islands, British Virgin Islands, Anguilla, Sint Maarten, Saint Martin, Saint Barthelemy, Guadeloupe, Martinique, Montserrat, Aruba, Curacao, Bonaire, Saba, Sint Eustatius, Saint Pierre and Miquelon, Bermuda, Turks and Caicos Islands, Cayman Islands, Belize, Honduras, Nicaragua, Costa Rica, El Salvador, Guatemala",
-    "offset": "-04:00"
+    "offset": "-04:00",
+    "offsetNum": -4
   },
   {
-    "value": "CDT",
-    "label": "Central Daylight Time",
+    "value": "America/Chicago",
+    "label": "Central Daylight Time (CDT)",
     "description": "If campaigning in regions of USA (Central), Canada (Manitoba, Saskatchewan), Mexico (Central), Belize, Guatemala, Honduras, El Salvador, Nicaragua, Costa Rica",
-    "offset": "-05:00"
+    "offset": "-05:00",
+    "offsetNum": -5
   },
   {
-    "value": "CST-6",
-    "label": "Central Standard Time",
+    "value": "America/Mexico_City",
+    "label": "Central Standard Time (CST-6)",
     "description": "If campaigning in small region of USA (Mountain), Mexico (Northwest), Canada (Saskatchewan), Central America",
-    "offset": "-06:00"
+    "offset": "-06:00",
+    "offsetNum": -6
   },
   {
-    "value": "PDT",
-    "label": "Pacific Daylight Time",
+    "value": "America/Los_Angeles",
+    "label": "Pacific Daylight Time (PDT)",
     "description": "If campaigning in regions of USA (West Coast), Canada (British Columbia, Yukon), Mexico (Baja California)",
-    "offset": "-07:00"
+    "offset": "-07:00",
+    "offsetNum": -7
   },
   {
-    "value": "AKDT",
-    "label": "Alaska Daylight Time",
+    "value": "America/Anchorage",
+    "label": "Alaska Daylight Time (AKDT)",
     "description": "If campaigning in Alaska (USA), parts of French Polynesia",
-    "offset": "-08:00"
+    "offset": "-08:00",
+    "offsetNum": -8
   },
   {
-    "value": "HDT",
-    "label": "Hawaii-Aleutian Daylight Time",
+    "value": "America/Adak",
+    "label": "Hawaii-Aleutian Daylight Time (HDT)",
     "description": "If campaigning in Alaska (Aleutian Islands, USA), regions of French Polynesia",
-    "offset": "-09:00"
+    "offset": "-09:00",
+    "offsetNum": -9
   },
   {
-    "value": "MART",
-    "label": "Marquesas Islands Time",
+    "value": "Pacific/Marquesas",
+    "label": "Marquesas Islands Time (MART)",
     "description": "If campaigning in Marquesas Islands (French Polynesia)",
-    "offset": "-09:30"
+    "offset": "-09:30",
+    "offsetNum": -9.5
   },
   {
-    "value": "HST",
-    "label": "Hawaii Standard Time",
+    "value": "Pacific/Honolulu",
+    "label": "Hawaii Standard Time (HST)",
     "description": "If campaigning in Hawaii (USA), French Polynesia (Society Islands, Tuamotu, Gambier), Cook Islands, Johnston Atoll (USA)",
-    "offset": "-10:00"
+    "offset": "-10:00",
+    "offsetNum": -10
   },
   {
-    "value": "NUT",
-    "label": "Niue Time",
+    "value": "Pacific/Niue",
+    "label": "Niue Time (NUT)",
     "description": "If campaigning in US Minor Outlying Islands (Niue, American Samoa, Jarvis Island, Kingman Reef, Midway Atoll, Palmyra Atoll), Tokelau",
-    "offset": "-11:00"
+    "offset": "-11:00",
+    "offsetNum": -11
   },
   {
-    "value": "AoE",
+    "value": "Etc/GMT+12",
     "label": "Anywhere on Earth",
     "description": "If campaigning in US Minor Outlying Islands (Baker Island, Howland Island)",
-    "offset": "-12:00"
+    "offset": "-12:00",
+    "offsetNum": -12
   }
 ]

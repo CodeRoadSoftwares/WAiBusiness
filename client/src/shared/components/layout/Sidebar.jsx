@@ -83,17 +83,17 @@ function Sidebar() {
       <div className="h-14 bg-white flex items-center px-3 md:px-4">
         <Link
           to="/dashboard"
-          className="flex items-center justify-center gap-1 text-base md:text-lg font-semibold"
+          className="flex items-center justify-center gap-1 text-base md:text-xl font-semibold text-wa-brand"
         >
           <img
-            src="/brand-logo.png"
+            src="/brand-logo-filled.png"
             alt="WAiBusiness"
-            className="w-10 h-10 mr-2"
+            className="w-8 h-8 mr-1"
           />
-          WAiBusiness
+          WaiBusiness
         </Link>
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-wa-brand/10 text-wa-brand ml-2">
-          beta
+        <span className="text-sm px-1.5 py-0.5 rounded bg-wa-brand/10 text-wa-brand font-semibold ml-2">
+          Beta
         </span>
       </div>
       <nav className="p-3 space-y-1 overflow-y-auto">

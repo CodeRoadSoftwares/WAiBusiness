@@ -43,7 +43,8 @@ export const campaignWorker = new Worker(
           recipient.variables || {}
         );
 
-        await Campaign.updateOne(
+        console.log(`📝 Updating recipient status to 'sent'`);
+        const updateResult = await Campaign.updateOne(
           {
             _id: campaignId,
             "messageVariants.variantName": variantName,
@@ -62,7 +63,27 @@ export const campaignWorker = new Worker(
             ],
           }
         );
+        console.log(`📝 Update result:`, updateResult);
+
+        // Also update campaign metrics
+        await Campaign.updateOne(
+          { _id: campaignId },
+          {
+            $inc: {
+              "metrics.sent": 1,
+              [`messageVariants.$[v].metrics.sent`]: 1,
+            },
+          },
+          {
+            arrayFilters: [{ "v.variantName": variantName }],
+          }
+        );
+        console.log(`📊 Campaign metrics updated`);
       } catch (err) {
+        console.error(
+          `❌ Failed to send message to ${recipient.phone}:`,
+          err.message
+        );
         await Campaign.updateOne(
           {
             _id: campaignId,
@@ -82,6 +103,20 @@ export const campaignWorker = new Worker(
             ],
           }
         );
+
+        // Update campaign metrics for failed messages
+        await Campaign.updateOne(
+          { _id: campaignId },
+          {
+            $inc: {
+              "metrics.failed": 1,
+              [`messageVariants.$[v].metrics.failed`]: 1,
+            },
+          },
+          {
+            arrayFilters: [{ "v.variantName": variantName }],
+          }
+        );
       }
 
       // check if campaign is done
@@ -98,9 +133,52 @@ export const campaignWorker = new Worker(
   { connection: redis }
 );
 
-campaignWorker.on("completed", (job) => console.log(`Job ${job.id} completed`));
+campaignWorker.on("completed", (job) =>
+  console.log(`✅ Job ${job.id} (${job.name}) completed`)
+);
 campaignWorker.on("failed", (job, err) =>
-  console.error(`Job ${job.id} failed: ${err.message}`)
+  console.error(`❌ Job ${job.id} (${job.name}) failed: ${err.message}`)
+);
+campaignWorker.on("error", (err) =>
+  console.error(`💥 Campaign worker error: ${err.message}`)
+);
+campaignWorker.on("stalled", (jobId) =>
+  console.warn(`⚠️ Job ${jobId} stalled`)
 );
 
-console.log("[worker] Campaign worker started");
+console.log("🚀 Campaign worker started and listening for jobs");
+
+// Function to check queue status
+export const getQueueStatus = async () => {
+  try {
+    const waiting = await campaignQueue.getWaiting();
+    const active = await campaignQueue.getActive();
+    const delayed = await campaignQueue.getDelayed();
+    const completed = await campaignQueue.getCompleted();
+    const failed = await campaignQueue.getFailed();
+
+    console.log(`📊 Queue Status:`);
+    console.log(`   Waiting: ${waiting.length}`);
+    console.log(`   Active: ${active.length}`);
+    console.log(`   Delayed: ${delayed.length}`);
+    console.log(`   Completed: ${completed.length}`);
+    console.log(`   Failed: ${failed.length}`);
+
+    if (delayed.length > 0) {
+      console.log(`⏰ Delayed jobs:`);
+      delayed.forEach((job) => {
+        console.log(
+          `   - Job ${job.id}: ${job.name} (${job.data.campaignId}) - Delay: ${job.delay}ms`
+        );
+      });
+    }
+
+    return { waiting, active, delayed, completed, failed };
+  } catch (error) {
+    console.error(`❌ Error getting queue status:`, error);
+    return null;
+  }
+};
+
+// Check queue status every 30 seconds
+setInterval(getQueueStatus, 30000);

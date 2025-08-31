@@ -114,8 +114,6 @@ export async function sendMessage(
 
         // Handle different media types properly
         if (message.media.type === "document") {
-         
-
           // For CSV files, ensure proper MIME type handling
           let finalMimeType =
             message.media.mimeType || "application/octet-stream";
@@ -124,7 +122,6 @@ export async function sendMessage(
             message.media.fileName.toLowerCase().endsWith(".csv")
           ) {
             finalMimeType = "text/csv";
-           
           }
 
           await client.sendMessage(jid, {
@@ -134,7 +131,6 @@ export async function sendMessage(
             mimetype: finalMimeType,
           });
         } else {
-         
           await client.sendMessage(jid, {
             [message.media.type]: fs.readFileSync(mediaPath),
             caption: substitutedCaption,
@@ -156,8 +152,6 @@ export async function sendMessage(
 
         // Handle different media types properly for mixed messages
         if (message.media.type === "document") {
-          
-
           // For CSV files, ensure proper MIME type handling
           let finalMimeType =
             message.media.mimeType || "application/octet-stream";
@@ -166,7 +160,6 @@ export async function sendMessage(
             message.media.fileName.toLowerCase().endsWith(".csv")
           ) {
             finalMimeType = "text/csv";
-           
           }
 
           await client.sendMessage(jid, {
@@ -176,7 +169,6 @@ export async function sendMessage(
             mimetype: finalMimeType,
           });
         } else {
-         
           await client.sendMessage(jid, {
             [message.media.type]: fs.readFileSync(mixedMediaPath),
             caption: mixedSubstitutedText,
@@ -190,7 +182,6 @@ export async function sendMessage(
         throw new Error(`Unsupported message type: ${message.type}`);
     }
 
-  
     return { success: true };
   } catch (err) {
     console.error("❌ sendMessage error:", err.message);

@@ -90,7 +90,7 @@ async function getMongoAuthState(userId) {
 
     if (Object.keys(update).length) {
       await WhatsappSession.updateOne({ userId }, { $set: update });
-      console.log("💾 Updated session in DB");
+      // console.log("💾 Updated session in DB");
     }
   };
 

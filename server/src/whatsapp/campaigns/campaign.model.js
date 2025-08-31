@@ -187,7 +187,7 @@ const CampaignSchema = new Schema(
       enum: ["immediate", "scheduled", "delayed"],
       default: "immediate",
     },
-    scheduledDate: { type: Date }, // when to start (if scheduled)
+    scheduledDate: { type: String }, // when to start (if scheduled) - stored as local time string
     timeZone: { type: String, default: "IST" },
     customDelay: { type: Number, default: 0 },
     delayUnit: {

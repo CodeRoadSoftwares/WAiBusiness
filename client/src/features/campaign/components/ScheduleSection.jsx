@@ -28,11 +28,12 @@ import {
   SelectValue,
 } from "../../../components/ui/select";
 import timezonesData from "../../../shared/constants/timezones.json";
+import { DateTime } from "luxon";
 
 const ScheduleSection = ({ formData, onFormChange }) => {
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTime, setSelectedTime] = useState("09:00");
-  const [selectedTimezone, setSelectedTimezone] = useState("IST");
+  const [selectedTimezone, setSelectedTimezone] = useState("Asia/Kolkata");
   const [scheduleType, setScheduleType] = useState("scheduled");
   const [customDelay, setCustomDelay] = useState(0);
   const [delayUnit, setDelayUnit] = useState("minutes");
@@ -98,10 +99,9 @@ const ScheduleSection = ({ formData, onFormChange }) => {
           const scheduledDateTime = new Date(now);
           scheduledDateTime.setHours(9, 0, 0, 0); // Set to 9:00 AM by default
 
-          // Convert local time to UTC using the new function
-          const utcTime = convertLocalToUTC(scheduledDateTime, "IST");
-          updateFormData("scheduledDate", utcTime.toISOString());
-          updateFormData("timeZone", "IST");
+          // Keep local time as entered by user
+          updateFormData("scheduledDate", scheduledDateTime);
+          updateFormData("timeZone", "Asia/Kolkata");
         }
       }
     }
@@ -115,8 +115,8 @@ const ScheduleSection = ({ formData, onFormChange }) => {
       }
     } else {
       // Set default timezone if none is set
-      setSelectedTimezone("IST");
-      updateFormData("timeZone", "IST");
+      setSelectedTimezone("Asia/Kolkata");
+      updateFormData("timeZone", "Asia/Kolkata");
     }
     if (formData.customDelay) {
       setCustomDelay(formData.customDelay);
@@ -191,30 +191,11 @@ const ScheduleSection = ({ formData, onFormChange }) => {
         const scheduledDateTime = new Date(selectedDate);
         scheduledDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
 
-        // Convert local time to UTC using the new function
-        const utcTime = convertLocalToUTC(scheduledDateTime, selectedTimezone);
-        updateFormData("scheduledDate", utcTime.toISOString());
+        // Keep local time as entered by user
+        updateFormData("scheduledDate", scheduledDateTime);
         updateFormData("timeZone", selectedTimezone);
       }
     }
-  };
-
-  // Convert local time to UTC
-  const convertLocalToUTC = (localDate, timezone) => {
-    const selectedTzData = timezonesData.find((tz) => tz.value === timezone);
-    if (!selectedTzData) return localDate;
-
-    const offsetStr = selectedTzData.offset;
-    const match = offsetStr.match(/^([+-]?)(\d{1,2}):?(\d{2})?$/);
-    if (!match) return localDate;
-
-    const sign = match[1] === "-" ? -1 : 1;
-    const hours = parseInt(match[2]);
-    const minutes = match[3] ? parseInt(match[3]) : 0;
-    const totalMinutes = sign * (hours * 60 + minutes);
-
-    // Add the offset to convert to UTC
-    return new Date(localDate.getTime() + totalMinutes * 60 * 1000);
   };
 
   // Handle quick delay selection
@@ -256,9 +237,8 @@ const ScheduleSection = ({ formData, onFormChange }) => {
       const scheduledDateTime = new Date(date);
       scheduledDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
 
-      // Convert local time to UTC using the new function
-      const utcTime = convertLocalToUTC(scheduledDateTime, selectedTimezone);
-      updateFormData("scheduledDate", utcTime.toISOString());
+      // Keep local time as entered by user
+      updateFormData("scheduledDate", scheduledDateTime);
     }
   };
 
@@ -270,9 +250,8 @@ const ScheduleSection = ({ formData, onFormChange }) => {
       const scheduledDateTime = new Date(selectedDate);
       scheduledDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
 
-      // Convert local time to UTC using the new function
-      const utcTime = convertLocalToUTC(scheduledDateTime, selectedTimezone);
-      updateFormData("scheduledDate", utcTime.toISOString());
+      // Keep local time as entered by user
+      updateFormData("scheduledDate", scheduledDateTime);
     }
   };
 
@@ -288,9 +267,8 @@ const ScheduleSection = ({ formData, onFormChange }) => {
         const scheduledDateTime = new Date(selectedDate);
         scheduledDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
 
-        // Convert local time to UTC using the new function
-        const utcTime = convertLocalToUTC(scheduledDateTime, timezone);
-        updateFormData("scheduledDate", utcTime.toISOString());
+        // Keep local time as entered by user
+        updateFormData("scheduledDate", scheduledDateTime);
       }
     }
   };
@@ -301,37 +279,35 @@ const ScheduleSection = ({ formData, onFormChange }) => {
 
   // Format time in 12-hour AM/PM format
   const formatTime12Hour = (timeString) => {
-    const [hours, minutes] = timeString.split(":");
+    let [hours, minutes] = timeString.split(":");
     const hour = parseInt(hours);
     const ampm = hour >= 12 ? "PM" : "AM";
     const hour12 = hour % 12 || 12;
     return `${hour12.toString().padStart(2, "0")}:${minutes} ${ampm}`;
-  };
 
-  const getDelayedTimePreview = () => {
-    const now = new Date();
-    let scheduledTime;
+    // let scheduledTime;
 
-    if (delayUnit === "minutes") {
-      scheduledTime = new Date(now.getTime() + customDelay * 60 * 1000);
-    } else if (delayUnit === "hours") {
-      scheduledTime = new Date(now.getTime() + customDelay * 60 * 60 * 1000);
-    } else if (delayUnit === "days") {
-      scheduledTime = new Date(
-        now.getTime() + customDelay * 24 * 60 * 60 * 1000
-      );
-    }
+    // if (delayUnit === "minutes") {
+    //   scheduledTime = new Date(now.getTime() + customDelay * 60 * 1000);
+    // } else if (delayUnit === "hours") {
+    //   scheduledTime = new Date(now.getTime() + customDelay * 60 * 60 * 1000);
+    // } else if (delayUnit === "days") {
+    //   scheduledTime = new Date(
+    //     now.getTime() + customDelay * 24 * 60 * 60 * 1000
+    //   );
+    // }
 
     // Format time in 12-hour AM/PM format
-    const hours = scheduledTime.getHours();
-    const minutes = scheduledTime.getMinutes();
-    const ampm = hours >= 12 ? "PM" : "AM";
-    const hour12 = hours % 12 || 12;
-    const formattedTime = `${hour12.toString().padStart(2, "0")}:${minutes
-      .toString()
-      .padStart(2, "0")} ${ampm}`;
+    // const hours = scheduledTime.getHours();
+    // const minutes = scheduledTime.getMinutes();
+    // const ampm = hours >= 12 ? "PM" : "AM";
+    // const hour12 = hours % 12 || 12;
 
-    return `${scheduledTime.toLocaleDateString()} at ${formattedTime}`;
+    // const formattedTime = `${hour12.toString().padStart(2, "0")}:${minutes
+    //   .toString()
+    //   .padStart(2, "0")} ${ampm}`;
+
+    // return `${scheduledTime.toLocaleDateString()} at ${formattedTime}`;
   };
 
   // Get selected timezone display info
@@ -339,6 +315,97 @@ const ScheduleSection = ({ formData, onFormChange }) => {
     const tz = timezonesData.find((t) => t.value === selectedTimezone);
     if (!tz) return selectedTimezone;
     return `${tz.label} (${tz.offset})`;
+  };
+
+  // Get current time in selected timezone
+  const getCurrentTimeInTimezone = () => {
+    try {
+      const now = new Date();
+      const timeInZone = now.toLocaleString("en-US", {
+        timeZone: selectedTimezone,
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
+
+      console.log("timeInZone", timeInZone);
+      return timeInZone;
+    } catch (_error) {
+      console.error("Error in getCurrentTimeInTimezone", _error);
+      try {
+        const tz = timezonesData.find((t) => t.value === selectedTimezone);
+        const offsetNum = tz.offsetNum;
+        // Build Etc/GMT zone from offsetNum
+        const sign = offsetNum >= 0 ? "-" : "+"; // reverse sign
+        const absOffset = Math.abs(offsetNum);
+
+        // Handle half-hour timezones (like 9.5)
+        const gmtZone = Number.isInteger(offsetNum)
+          ? `Etc/GMT${sign}${absOffset}`
+          : null; // Intl doesn't support 30-min offsets via Etc/GMT
+
+        if (!gmtZone) {
+          return `No valid Etc/GMT fallback for offset ${offsetNum}`;
+        }
+
+        const now = new Date();
+        const timeInZone = now.toLocaleString("en-US", {
+          timeZone: gmtZone,
+          year: "numeric",
+          month: "short",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        });
+
+        console.log("Fallback to", gmtZone, "=>", timeInZone);
+        return timeInZone;
+      } catch (_error) {
+        console.error("Error in getCurrentTimeInTimezone", _error);
+        return "Unable to get time";
+      }
+    }
+  };
+
+  // Check if selected time is in the past for the selected timezone
+  const isSelectedTimeInPast = () => {
+    if (!selectedDate || !selectedTime || scheduleType !== "scheduled")
+      return false;
+
+    try {
+      const [hours, minutes] = selectedTime.split(":");
+      const selectedDateTime = new Date(selectedDate);
+      selectedDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+      // Get current time in the selected timezone
+      const now = new Date();
+      const currentTimeInZone = new Date(
+        now.toLocaleString("en-US", { timeZone: selectedTimezone })
+      );
+
+      return selectedDateTime < currentTimeInZone;
+    } catch (_error) {
+      const tz = timezonesData.find((t) => t.value === selectedTimezone);
+      const offsetNum = tz.offsetNum;
+      const sign = offsetNum >= 0 ? "-" : "+";
+      const absOffset = Math.abs(offsetNum);
+      const gmtZone = `Etc/GMT${sign}${absOffset}`;
+
+      const [hours, minutes] = selectedTime.split(":");
+      const selectedDateTime = new Date(selectedDate);
+      selectedDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+      const now = new Date();
+      const currentTimeInZone = new Date(
+        now.toLocaleString("en-US", { timeZone: gmtZone })
+      );
+      console.error("Error in isSelectedTimeInPast", _error);
+      return selectedDateTime < currentTimeInZone;
+    }
   };
 
   return (
@@ -625,7 +692,7 @@ const ScheduleSection = ({ formData, onFormChange }) => {
                         }}
                         className="w-full text-left px-3 py-2 hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
                       >
-                        <div className="flex flex-col items-start space-y-1 w-full">
+                        <div className="flex flex-col items-start w-full">
                           <div className="flex items-center space-x-2 w-full">
                             <Globe className="w-4 h-4 text-gray-500 flex-shrink-0" />
                             <span className="font-medium truncate">
@@ -635,6 +702,9 @@ const ScheduleSection = ({ formData, onFormChange }) => {
                               ({timezone.offset})
                             </span>
                           </div>
+                          <span className="text-xs text-gray-600 dark:text-gray-400 ml-6 leading-relaxed break-words font-mono">
+                            {timezone.value}
+                          </span>
                           <span className="text-xs text-gray-600 dark:text-gray-400 ml-6 leading-relaxed break-words">
                             {timezone.description}
                           </span>
@@ -650,6 +720,35 @@ const ScheduleSection = ({ formData, onFormChange }) => {
                 </div>,
                 document.body
               )}
+          </div>
+
+          {/* Timezone Information and Current Time */}
+          <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <Globe className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                Current time in {getSelectedTimezoneInfo()}
+              </span>
+            </div>
+            <div className="text-sm text-blue-700 dark:text-blue-300 font-mono">
+              {getCurrentTimeInTimezone()}
+            </div>
+
+            {/* Past Time Warning */}
+            {isSelectedTimeInPast() && (
+              <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                  <span className="text-sm font-medium text-red-800 dark:text-red-200">
+                    ⚠️ Selected time is in the past
+                  </span>
+                </div>
+                <p className="text-xs text-red-700 dark:text-red-300 mt-1">
+                  Campaign will be sent immediately since the scheduled time has
+                  already passed.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -689,6 +788,8 @@ const ScheduleSection = ({ formData, onFormChange }) => {
                       ? delayUnit.slice(0, -1)
                       : delayUnit
                   }`
+                : isSelectedTimeInPast()
+                ? "Campaign will start immediately (selected time is in the past)"
                 : `Campaign will start on ${
                     selectedDate
                       ? `${selectedDate.toLocaleString("en-US", {
@@ -697,10 +798,20 @@ const ScheduleSection = ({ formData, onFormChange }) => {
                           month: "short",
                         })}`
                       : ""
-                  } at ${formatTime12Hour(selectedTime)}`}
+                  } at ${formatTime12Hour(
+                    selectedTime
+                  )} in ${getSelectedTimezoneInfo()}`}
             </span>
           </div>
         </div>
+
+        {/* Additional timezone info for scheduled campaigns */}
+        {scheduleType === "scheduled" && !isSelectedTimeInPast() && (
+          <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+            <span className="font-medium">Note:</span> Time shown is in{" "}
+            {getSelectedTimezoneInfo()}
+          </div>
+        )}
       </div>
     </div>
   );
