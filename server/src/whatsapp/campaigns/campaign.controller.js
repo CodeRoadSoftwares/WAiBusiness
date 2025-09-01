@@ -69,6 +69,25 @@ const createCampaign = async (req, res) => {
   }
 };
 
+const getCampaignsCount = async (req, res) => {
+  try {
+    const campaignsCount = await CampaignManager.getCampaignsCountManager(
+      req.user.id
+    );
+    res.status(200).json({
+      success: true,
+      data: campaignsCount,
+    });
+  } catch (error) {
+    console.error("Campaigns count error:", error);
+    res.status(500).json({
+      error: "Failed to get campaigns count",
+      message: error.message,
+    });
+  }
+};
+
 export const CampaignController = {
   createCampaign,
+  getCampaignsCount,
 };

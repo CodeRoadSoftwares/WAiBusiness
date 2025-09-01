@@ -7,7 +7,6 @@ import {
   uploadCampaignFiles,
   uploadMedia,
 } from "../middlewares/fileUpload.middleware.js";
-import { TemplateController } from "./template/template.controller.js";
 
 const router = express.Router();
 
@@ -51,7 +50,10 @@ router.delete("/session", requireAuth, async (req, res) => {
   }
 });
 
-// CAMPAIGN ROUTES
+//? /////////////////////////////////////////////////////////////////////
+//? /////////////////////////////////////////////////////////////////////
+//? /////////////////////////////////////////////////////////////////////
+//? CAMPAIGN ROUTES
 router.post(
   "/campaigns/create",
   requireAuth,
@@ -108,15 +110,11 @@ router.post(
   CampaignController.createCampaign
 );
 
-// TEMPLATE ROUTES
-router.post(
-  "/templates/create",
+// Get campaigns count
+router.get(
+  "/campaigns/count",
   requireAuth,
-  // Handle media file uploads for templates using existing middleware
-  uploadMedia.single("mediaFile"),
-  TemplateController.createTemplate
+  CampaignController.getCampaignsCount
 );
-
-router.get("/templates", requireAuth, TemplateController.getTemplates);
 
 export default router;

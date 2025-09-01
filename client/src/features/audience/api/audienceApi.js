@@ -4,7 +4,7 @@ import { customBaseQuery } from "../../../shared/services/baseQuery";
 export const audienceApi = createApi({
   reducerPath: "audienceApi",
   baseQuery: customBaseQuery,
-  tagTypes: ["Audience"],
+  tagTypes: ["Audience", "AudienceCount"],
   endpoints: (builder) => ({
     getAudience: builder.query({
       query: (params = {}) => ({
@@ -21,7 +21,17 @@ export const audienceApi = createApi({
         return response.data;
       },
     }),
+    getAudienceCount: builder.query({
+      query: () => ({
+        url: "/audience/count",
+        method: "GET",
+      }),
+      providesTags: ["AudienceCount"],
+      transformResponse: (response) => {
+        return response.data;
+      },
+    }),
   }),
 });
 
-export const { useGetAudienceQuery } = audienceApi;
+export const { useGetAudienceQuery, useGetAudienceCountQuery } = audienceApi;

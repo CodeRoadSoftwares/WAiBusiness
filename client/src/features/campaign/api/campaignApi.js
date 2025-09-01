@@ -4,6 +4,7 @@ import { customBaseQuery } from "../../../shared/services/baseQuery";
 export const campaignApi = createApi({
   reducerPath: "campaignApi",
   baseQuery: customBaseQuery,
+  tagTypes: ["Campaign", "CampaignsCount"],
   endpoints: (builder) => ({
     createCampaign: builder.mutation({
       query: (campaignData) => ({
@@ -11,8 +12,19 @@ export const campaignApi = createApi({
         method: "POST",
         body: campaignData,
       }),
+      invalidatesTags: ["Campaign"],
+    }),
+    getCampaignsCount: builder.query({
+      query: () => ({
+        url: "/whatsapp/campaigns/count",
+        method: "GET",
+      }),
+
+      transformResponse: (response) => response.data,
+      providesTags: ["CampaignsCount"],
     }),
   }),
 });
 
-export const { useCreateCampaignMutation } = campaignApi;
+export const { useCreateCampaignMutation, useGetCampaignsCountQuery } =
+  campaignApi;

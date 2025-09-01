@@ -4,19 +4,19 @@ import { customBaseQuery } from "../../../shared/services/baseQuery";
 export const templateApi = createApi({
   reducerPath: "templateApi",
   baseQuery: customBaseQuery,
-  tagTypes: ["Template"],
+  tagTypes: ["Template", "TemplateCount"],
   endpoints: (builder) => ({
     createTemplate: builder.mutation({
       query: (templateData) => ({
-        url: "/whatsapp/templates/create",
+        url: "/template/create",
         method: "POST",
         body: templateData,
       }),
-      invalidatesTags: ["Template"],
+      invalidatesTags: ["Template", "TemplateCount"],
     }),
     getTemplates: builder.query({
       query: (params = {}) => ({
-        url: "/whatsapp/templates",
+        url: "/template",
         method: "GET",
         params: {
           search: params.search || "",
@@ -29,7 +29,21 @@ export const templateApi = createApi({
         return response.data;
       },
     }),
+    getTemplatesCount: builder.query({
+      query: () => ({
+        url: "/template/count",
+        method: "GET",
+      }),
+      providesTags: ["TemplateCount"],
+      transformResponse: (response) => {
+        return response.data;
+      },
+    }),
   }),
 });
 
-export const { useCreateTemplateMutation, useGetTemplatesQuery } = templateApi;
+export const {
+  useCreateTemplateMutation,
+  useGetTemplatesQuery,
+  useGetTemplatesCountQuery,
+} = templateApi;

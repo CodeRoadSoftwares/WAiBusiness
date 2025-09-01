@@ -21,6 +21,25 @@ const getAudience = async (req, res) => {
   }
 };
 
+const getAudienceCount = async (req, res) => {
+  try {
+    const audienceCount = await AudienceManager.getAudienceCountManager(
+      req.user.id
+    );
+    res.status(200).json({
+      success: true,
+      message: "Audience count fetched successfully",
+      data: audienceCount,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 export const AudienceController = {
   getAudience,
+  getAudienceCount,
 };

@@ -9,6 +9,7 @@ import UserRoutes from "./src/users/user.routes.js";
 import AuthRoutes from "./src/auth/auth.routes.js";
 import WhatsappRoutes from "./src/whatsapp/whatsapp.routes.js";
 import AudienceRoutes from "./src/whatsapp/audience/audience.routes.js";
+import TemplateRoutes from "./src/whatsapp/template/template.route.js";
 import createSocketServer from "./src/realtime/socket.js";
 import { warmUpWhatsappSessions } from "./src/whatsapp/sessions/services/whatsappsession.service.js";
 import "./src/queue/workers/campaign.worker.js"; // no need to keep a ref
@@ -43,6 +44,7 @@ app.use("/api/users", UserRoutes);
 app.use("/api/auth", AuthRoutes);
 app.use("/api/audience", AudienceRoutes);
 app.use("/api/whatsapp", WhatsappRoutes);
+app.use("/api/template", TemplateRoutes);
 
 const PORT = process.env.PORT || 4000;
 const server = http.createServer(app);

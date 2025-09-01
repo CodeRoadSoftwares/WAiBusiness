@@ -60,12 +60,13 @@ const createTemplate = async (req, res) => {
 const getTemplates = async (req, res) => {
   try {
     const { search = "", limit = 20, skip = 0 } = req.query;
-    
-    const result = await TemplateManager.getTemplatesManager(
-      req.user.id,
-      { search, limit: parseInt(limit), skip: parseInt(skip) }
-    );
-    
+
+    const result = await TemplateManager.getTemplatesManager(req.user.id, {
+      search,
+      limit: parseInt(limit),
+      skip: parseInt(skip),
+    });
+
     res.json({
       success: true,
       data: result,
@@ -79,7 +80,26 @@ const getTemplates = async (req, res) => {
   }
 };
 
+const getTemplatesCount = async (req, res) => {
+  try {
+    const templatesCount = await TemplateManager.getTemplatesCountManager(
+      req.user.id
+    );
+    res.status(200).json({
+      success: true,
+      data: templatesCount,
+    });
+  } catch (error) {
+    console.error("Get templates count error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 export const TemplateController = {
   createTemplate,
   getTemplates,
+  getTemplatesCount,
 };

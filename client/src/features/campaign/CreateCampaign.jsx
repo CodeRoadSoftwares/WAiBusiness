@@ -465,7 +465,7 @@ function CreateCampaign() {
           {/* Audience Section - Now before Content */}
           <CollapsibleSection
             title="Audience"
-            defaultOpen={false}
+            defaultOpen={true}
             icon={Users}
             status={
               formData.audienceType === "upload" && formData.audienceFile
@@ -488,7 +488,7 @@ function CreateCampaign() {
           {/* Content Section */}
           <CollapsibleSection
             title="Content"
-            defaultOpen={false}
+            defaultOpen={true}
             icon={MessageSquare}
             status={
               formData.messageType === "text" && formData.messageContent?.trim()
@@ -513,7 +513,7 @@ function CreateCampaign() {
 
           <CollapsibleSection
             title="Schedule"
-            defaultOpen={false}
+            defaultOpen={true}
             icon={Calendar}
             status={
               formData.scheduleType === "immediate"
@@ -536,6 +536,7 @@ function CreateCampaign() {
             defaultOpen={false}
             icon={Settings}
             disabled={true}
+            status="Coming Soon!"
           >
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

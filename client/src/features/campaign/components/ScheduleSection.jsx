@@ -724,13 +724,13 @@ const ScheduleSection = ({ formData, onFormChange }) => {
 
           {/* Timezone Information and Current Time */}
           <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 ">
               <Globe className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
                 Current time in {getSelectedTimezoneInfo()}
               </span>
             </div>
-            <div className="text-sm text-blue-700 dark:text-blue-300 font-mono">
+            <div className="text-blue-700 dark:text-blue-300 font-mono font-semibold text-lg ml-6">
               {getCurrentTimeInTimezone()}
             </div>
 
@@ -740,7 +740,7 @@ const ScheduleSection = ({ formData, onFormChange }) => {
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 bg-red-500 rounded-full"></span>
                   <span className="text-sm font-medium text-red-800 dark:text-red-200">
-                    ⚠️ Selected time is in the past
+                    Selected time is in the past
                   </span>
                 </div>
                 <p className="text-xs text-red-700 dark:text-red-300 mt-1">
