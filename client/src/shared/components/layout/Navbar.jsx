@@ -13,9 +13,10 @@ function Navbar() {
     "link-device": "Link Device",
     chats: "Conversations",
     settings: "Settings",
-    create: "Create New",
+    create: "Create",
     edit: "Edit",
     profile: "Profile",
+    campaigns: "All",
   };
 
   // Function to generate breadcrumbs from current path

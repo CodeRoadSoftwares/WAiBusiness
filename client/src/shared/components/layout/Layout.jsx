@@ -10,7 +10,9 @@ function Layout({ children }) {
         <div className="flex-1 flex flex-col">
           <Navbar />
           <main className="flex-1 bg-wa-bg-chat-light dark:bg-wa-bg-chat-dark overflow-y-auto">
-            <div className="mx-auto max-w-full md:px-6 lg:px-8">{children}</div>
+            <div className="mx-auto max-w-full md:px-6 lg:px-8 py-8">
+              {children}
+            </div>
           </main>
         </div>
       </div>

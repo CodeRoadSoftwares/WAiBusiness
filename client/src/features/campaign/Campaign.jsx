@@ -84,7 +84,7 @@ function Campaign() {
 
   return (
     <div className="min-h-screen py-8">
-      <div className="max-w-7xl mx-auto px-6">
+      <div className="max-w-7xl mx-auto">
         {/* Action Cards Section */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           {/* Create Audience Card */}
@@ -144,7 +144,7 @@ function Campaign() {
           </Link>
 
           {/* Create Campaign Card */}
-          <Link to="/campaign/create-campaign" className="group">
+          <Link to="/campaign/create" className="group">
             <Div
               size="xl"
               className="bg-wa-bg-panel-light dark:bg-wa-bg-panel-dark hover:shadow-waPanel transition-all duration-300 cursor-pointer h-full"

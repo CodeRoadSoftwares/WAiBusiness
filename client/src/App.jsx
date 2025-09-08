@@ -12,6 +12,7 @@ import CreateCampaign from "./features/campaign/CreateCampaign";
 import Campaign from "./features/campaign/Campaign";
 import CreateAudience from "./features/audience/CreateAudience";
 import CreateTemplate from "./features/template/CreateTemplate";
+import Campaigns from "./features/campaign/Campaigns";
 
 function App() {
   return (
@@ -79,6 +80,16 @@ function App() {
             }
           />
           <Route
+            path="/campaign/campaigns"
+            element={
+              <AuthGuard mode="private">
+                <Main>
+                <Campaigns />
+                </Main>
+              </AuthGuard>
+            }
+          />
+          <Route
             path="/campaign/create-audience"
             element={
               <AuthGuard mode="private">
@@ -99,7 +110,7 @@ function App() {
             }
           />
           <Route
-            path="/campaign/create-campaign"
+            path="/campaign/create"
             element={
               <AuthGuard mode="private">
                 <Main>

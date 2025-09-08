@@ -1,9 +1,11 @@
-import { createCampaign } from "./mutations/createCampaign.repository.js";
-import { getCampaignById } from "./queries/getCampaignById.repository.js";
+import { createCampaign } from "./mutations/createCampaign.mutation.js";
+import { getCampaignById } from "./queries/getCampaignById.query.js";
 import { getCampaignsCount } from "./queries/getCampaignsCount.query.js";
+import { getCampaigns } from "./queries/getCampaigns.query.js";
 
 export const CampaignRepository = {
   createCampaign,
   getCampaignById,
   getCampaignsCount,
+  getCampaigns,
 };

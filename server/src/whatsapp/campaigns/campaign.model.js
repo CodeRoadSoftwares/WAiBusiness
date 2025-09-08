@@ -230,4 +230,20 @@ const CampaignSchema = new Schema(
 /** Useful indexes */
 CampaignSchema.index({ userId: 1, status: 1, createdAt: -1 });
 
+/**
+ * Pre-save hook to set metrics.totalRecipients as the sum of all messageVariants' metrics.totalRecipients
+ */
+CampaignSchema.pre("save", function (next) {
+  if (Array.isArray(this.messageVariants)) {
+    const sum = this.messageVariants.reduce((acc, variant) => {
+      // Defensive: handle missing metrics or totalRecipients
+      const variantTotal = variant?.metrics?.totalRecipients || 0;
+      return acc + variantTotal;
+    }, 0);
+    if (!this.metrics) this.metrics = {};
+    this.metrics.totalRecipients = sum;
+  }
+  next();
+});
+
 export default mongoose.model("Campaign", CampaignSchema);

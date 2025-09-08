@@ -117,4 +117,7 @@ router.get(
   CampaignController.getCampaignsCount
 );
 
+// Get campaigns with advanced filtering, searching, and sorting
+router.get("/campaigns", requireAuth, CampaignController.getCampaigns);
+
 export default router;
