@@ -10,6 +10,8 @@ import { AudienceRepository } from "../../audience/repositories/audience.reposit
 import fs from "fs";
 import path from "path";
 import { TemplateRepository } from "../../template/repositories/template.repository.js";
+import { whatsappRateLimiter } from "../../../utils/whatsappRateLimiter.util.js";
+import User from "../../../users/user.model.js";
 
 const createCampaignManager = async (userId, campaignData, files = {}) => {
   let savedMediaFile = null; // Track saved file for cleanup
@@ -368,24 +370,18 @@ const createCampaignManager = async (userId, campaignData, files = {}) => {
         }
 
         if (campaignData.scheduleType == "scheduled") {
-
           campaignDataForModel.scheduleType = "scheduled";
           campaignDataForModel.timeZone = campaignData.timeZone;
           campaignDataForModel.scheduledDate = campaignData.scheduledDate;
           campaignDataForModel.status = "scheduled";
-
         } else if (campaignData.scheduleType == "delayed") {
-
           campaignDataForModel.scheduleType = "delayed";
           campaignDataForModel.customDelay = campaignData.customDelay;
           campaignDataForModel.delayUnit = campaignData.delayUnit;
           campaignDataForModel.status = "scheduled";
-
         } else if (campaignData.scheduleType == "immediate") {
-
           campaignDataForModel.scheduleType = "immediate";
           campaignDataForModel.status = "running";
-          
         }
 
         if (
@@ -411,6 +407,87 @@ const createCampaignManager = async (userId, campaignData, files = {}) => {
             campaignDataForModel.existingAudienceId = audience._id;
           }
         }
+
+        // Calculate dynamic rate limits based on campaign and user data
+        const user = await User.findById(userId);
+        if (!user) {
+          throw new Error("User not found");
+        }
+
+        // Calculate total recipients for rate limit calculation
+        const totalRecipients = campaignDataForModel.messageVariants.reduce(
+          (sum, variant) => sum + (variant.recipients?.length || 0),
+          0
+        );
+
+        // Create a temporary campaign object for rate limit calculation
+        const tempCampaign = {
+          ...campaignDataForModel,
+          totalRecipients,
+          _id: "temp", // Temporary ID for calculation
+        };
+
+        // Calculate optimal rate limits
+        let dynamicRateLimits;
+        try {
+          dynamicRateLimits =
+            await whatsappRateLimiter.calculateOptimalRateLimits(
+              tempCampaign,
+              user,
+              {
+                audienceSize: totalRecipients,
+                messageType:
+                  campaignDataForModel.messageVariants[0]?.type || "text",
+              }
+            );
+        } catch (error) {
+          console.error(
+            "Failed to calculate dynamic rate limits, using defaults:",
+            error
+          );
+          // Use conservative defaults if calculation fails
+          dynamicRateLimits = {
+            messagesPerMinute: 5,
+            maxRetries: 2,
+            randomDelay: true,
+            delayBetweenMessages: 3000,
+          };
+        }
+
+        // Apply dynamic rate limits to campaign
+        campaignDataForModel.rateLimit = {
+          messagesPerMinute: dynamicRateLimits.messagesPerMinute,
+          maxRetries: dynamicRateLimits.maxRetries,
+          randomDelay: dynamicRateLimits.randomDelay,
+        };
+
+        // Apply variant-specific rate limits if needed
+        campaignDataForModel.messageVariants.forEach((variant) => {
+          if (!variant.rateLimit) {
+            variant.rateLimit = {
+              messagesPerMinute: Math.round(
+                dynamicRateLimits.messagesPerMinute * 0.8
+              ), // Slightly more conservative for variants
+              maxRetries: dynamicRateLimits.maxRetries,
+              randomDelay: dynamicRateLimits.randomDelay,
+            };
+          }
+        });
+
+        console.log(
+          `🎯 Applied dynamic rate limits for campaign ${campaignDataForModel.name}:`,
+          {
+            campaign: {
+              messagesPerMinute: dynamicRateLimits.messagesPerMinute,
+              maxRetries: dynamicRateLimits.maxRetries,
+              randomDelay: dynamicRateLimits.randomDelay,
+            },
+            variants: campaignDataForModel.messageVariants.map((v) => ({
+              variantName: v.variantName,
+              messagesPerMinute: v.rateLimit.messagesPerMinute,
+            })),
+          }
+        );
 
         const campaign = await CampaignRepository.createCampaign(
           campaignDataForModel,

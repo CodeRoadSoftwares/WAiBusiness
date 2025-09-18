@@ -11,7 +11,7 @@ const RecipientSchema = new Schema(
 
     status: {
       type: String,
-      enum: ["pending", "sent", "delivered", "read", "failed"],
+      enum: ["pending", "sent", "delivered", "read", "failed", "skipped"],
       default: "pending",
       index: true,
     },
@@ -220,9 +220,14 @@ const CampaignSchema = new Schema(
       failed: { type: Number, default: 0 },
     },
 
+    // Total recipients and processed recipients for job tracking
+    totalRecipients: { type: Number, default: 0 },
+    processedRecipients: { type: Number, default: 0 },
+
     // Audit
     createdBy: { type: Schema.Types.ObjectId, ref: "User" },
     updatedBy: { type: Schema.Types.ObjectId, ref: "User" },
+    completedAt: { type: Date },
   },
   { timestamps: true }
 );
@@ -240,6 +245,9 @@ CampaignSchema.pre("save", function (next) {
       const variantTotal = variant?.metrics?.totalRecipients || 0;
       return acc + variantTotal;
     }, 0);
+
+    this.totalRecipients = sum;
+
     if (!this.metrics) this.metrics = {};
     this.metrics.totalRecipients = sum;
   }

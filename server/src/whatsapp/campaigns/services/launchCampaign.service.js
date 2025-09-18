@@ -10,31 +10,18 @@ export const launchCampaign = async (campaignId) => {
     campaign.status = "running";
     await campaign.save();
 
-    for (let variant of campaign.messageVariants) {
-      for (let recipient of variant.recipients) {
-        await campaignQueue.add(
-          "send-message",
-          {
-            campaignId,
-            userId: campaign.userId.toString(),
-            variantName: variant.variantName,
-            recipient,
-            message: {
-              type: variant.type,
-              text: variant.message,
-              media: variant.media,
-              templateId: variant.templateId,
-            },
-          },
-          {
-            attempts: 3,
-            backoff: { type: "fixed", delay: 5000 }, // retry after 5s
-            removeOnComplete: true,
-            removeOnFail: false,
-          }
-        );
+    // Use batch processing for immediate campaigns too
+    await campaignQueue.add(
+      "start-campaign",
+      { campaignId },
+      {
+        attempts: 3,
+        backoff: { type: "exponential", delay: 2000 },
+        removeOnComplete: 100,
+        removeOnFail: 50,
+        delay: 0, // Start immediately
       }
-    }
+    );
   } else if (campaign.scheduleType === "scheduled") {
     campaign.status = "scheduled";
 

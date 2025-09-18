@@ -68,6 +68,12 @@ export async function sendMessage(
   recipientVariables = {}
 ) {
   try {
+    console.log(`📤 Attempting to send message to ${to} for user ${userId}`);
+    console.log(
+      `📤 Message type: ${message.type}, content:`,
+      message.text || message.media?.url
+    );
+
     let client = await ensureWhatsappClient(userId);
 
     // Normalize and validate recipient
@@ -87,11 +93,16 @@ export async function sendMessage(
 
     const exists = await client.onWhatsApp(candidate);
     const isRegistered = Array.isArray(exists) && exists[0]?.exists === true;
+    console.log(
+      `📤 Recipient ${candidate} exists on WhatsApp: ${isRegistered}`
+    );
+
     if (!isRegistered) {
       throw new Error(`Recipient not on WhatsApp: ${candidate}`);
     }
 
     const jid = checkJid;
+    console.log(`📤 Sending message to JID: ${jid}`);
 
     switch (message.type) {
       case "text":
@@ -99,7 +110,9 @@ export async function sendMessage(
           message.text,
           recipientVariables
         );
-        await client.sendMessage(jid, { text: substitutedText });
+        console.log(`📤 Sending text message: "${substitutedText}"`);
+        const result = await client.sendMessage(jid, { text: substitutedText });
+        console.log(`✅ Text message sent successfully:`, result?.key?.id);
         break;
 
       case "media":
@@ -185,6 +198,6 @@ export async function sendMessage(
     return { success: true };
   } catch (err) {
     console.error("❌ sendMessage error:", err.message);
-    return { success: false, error: err.message };
+    throw new Error(`Message send failed: ${err.message}`);
   }
 }
