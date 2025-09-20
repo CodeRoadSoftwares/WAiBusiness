@@ -4,6 +4,7 @@ import { BiQrScan } from "react-icons/bi";
 import { IoMdSettings } from "react-icons/io";
 import { MdChat } from "react-icons/md";
 import { MdCampaign } from "react-icons/md";
+import { MdMenuBook } from "react-icons/md";
 import { NavLink, useNavigate, Link } from "react-router-dom";
 import {
   useGetAuthStatusQuery,
@@ -35,7 +36,11 @@ const navItems = [
     label: "Chats",
     icon: <MdChat />,
   },
-
+  {
+    to: "/docs",
+    label: "API Docs",
+    icon: <MdMenuBook />,
+  },
   { to: "/settings", label: "Settings", icon: <IoMdSettings /> },
 ];
 

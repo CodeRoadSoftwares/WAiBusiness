@@ -18,6 +18,10 @@ const userSchema = new Schema(
       type: String,
       required: true,
     },
+    apiKey: {
+      type: String,
+      required: true,
+    },
     passwordHash: {
       type: String,
       required: true,

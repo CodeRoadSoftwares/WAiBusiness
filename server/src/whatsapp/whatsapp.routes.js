@@ -117,6 +117,13 @@ router.get(
   CampaignController.getCampaignsCount
 );
 
+// Get num of sent messages
+router.get(
+  "/campaigns/sent-number",
+  requireAuth,
+  CampaignController.getNumOfSentMessages
+);
+
 // Get campaigns with advanced filtering, searching, and sorting
 router.get("/campaigns", requireAuth, CampaignController.getCampaigns);
 

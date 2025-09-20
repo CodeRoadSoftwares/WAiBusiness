@@ -20,7 +20,11 @@ import {
   MessageSquareText,
   Users,
 } from "lucide-react";
-import { useGetCampaignsCountQuery } from "./api/campaignApi";
+import {
+  useGetCampaignsCountQuery,
+  useGetNumOfSentMessagesQuery,
+} from "./api/campaignApi";
+import { shortNumber } from "@/lib/number-shortner";
 
 function Campaign() {
   const navigate = useNavigate();
@@ -42,6 +46,8 @@ function Campaign() {
     isLoading: isLoadingCampaignsCount,
     error: campaignsCountError,
   } = useGetCampaignsCountQuery();
+
+  const { data: numOfSentMessages } = useGetNumOfSentMessagesQuery();
 
   // Loading skeleton component for stats
   const StatSkeleton = () => (
@@ -312,7 +318,7 @@ function Campaign() {
                   Total Sent
                 </p>
                 <p className="text-2xl font-bold text-wa-text-primary-light dark:text-wa-text-primary-dark">
-                  2.4K
+                  {shortNumber(numOfSentMessages) || 0}
                 </p>
                 <span className="text-sm text-wa-text-secondary-light dark:text-wa-text-secondary-dark">
                   Messages

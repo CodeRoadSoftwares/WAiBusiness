@@ -69,6 +69,13 @@ export const campaignApi = createApi({
       transformResponse: (response) => response.data,
       providesTags: ["CampaignsCount"],
     }),
+    getNumOfSentMessages: builder.query({
+      query: () => ({
+        url: "/whatsapp/campaigns/sent-number",
+        method: "GET",
+      }),
+      transformResponse: (response) => response.data,
+    }),
   }),
 });
 
@@ -76,4 +83,5 @@ export const {
   useCreateCampaignMutation,
   useGetCampaignsQuery,
   useGetCampaignsCountQuery,
+  useGetNumOfSentMessagesQuery,
 } = campaignApi;

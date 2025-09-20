@@ -5,6 +5,7 @@ import {
   getWhatsappClient,
   ensureWhatsappClient,
 } from "../../sessions/services/whatsappsession.service.js";
+import { presenceManager } from "../../sessions/services/whatsappPresenceManager.service.js";
 
 // Helper: substitute variables in text using {{variable_name}} syntax
 function substituteVariables(text, variables = {}) {
@@ -34,6 +35,11 @@ function substituteVariables(text, variables = {}) {
 function resolveMediaPath(mediaPath) {
   if (!mediaPath) return null;
 
+  // Check if it's a URL (starts with http:// or https://)
+  if (mediaPath.startsWith("http://") || mediaPath.startsWith("https://")) {
+    return mediaPath; // Return URL as-is for direct messages
+  }
+
   // Check if it's a Windows absolute path (e.g., C:\folder\file)
   if (path.isAbsolute(mediaPath) && mediaPath.includes(":")) {
     return mediaPath;
@@ -60,12 +66,14 @@ function resolveMediaPath(mediaPath) {
  * @param {String} to - Recipient phone number (just digits, e.g., "919876543210")
  * @param {Object} message - Message object (type + content)
  * @param {Object} recipientVariables - Variables to substitute in the message
+ * @param {Object} options - Additional options (priority, usePresence)
  */
 export async function sendMessage(
   userId,
   to,
   message,
-  recipientVariables = {}
+  recipientVariables = {},
+  options = {}
 ) {
   try {
     console.log(`📤 Attempting to send message to ${to} for user ${userId}`);
@@ -104,6 +112,86 @@ export async function sendMessage(
     const jid = checkJid;
     console.log(`📤 Sending message to JID: ${jid}`);
 
+    // Check if we should use presence for high priority messages
+    const priority = options.priority || "normal";
+    const usePresence =
+      options.usePresence !== false &&
+      (priority === "urgent" || priority === "high");
+
+    if (usePresence) {
+      console.log(
+        `🎭 Using presence sequence for ${priority} priority message`
+      );
+
+      // Check if user is already online
+      const isAlreadyOnline = presenceManager.isUserOnline(userId);
+
+      if (isAlreadyOnline) {
+        console.log(`🔄 User ${userId} already online, extending duration`);
+        // Extend online duration instead of full presence sequence
+        presenceManager.extendOnlineDuration(userId, jid);
+
+        // Send message directly
+        const result = await sendMessageWithoutPresence(
+          client,
+          jid,
+          message,
+          recipientVariables
+        );
+        console.log(`✅ Message sent (user already online)`);
+        return { success: true, presenceUsed: true, extendedOnline: true };
+      } else {
+        // Full presence sequence for first message
+        const presenceResult = await presenceManager.setOnlineAndTyping(
+          userId,
+          jid,
+          priority
+        );
+        if (!presenceResult.success) {
+          console.warn(
+            `⚠️ Presence setup failed, proceeding with message send: ${presenceResult.error}`
+          );
+        }
+
+        // Send message
+        const result = await sendMessageWithoutPresence(
+          client,
+          jid,
+          message,
+          recipientVariables
+        );
+        console.log(`✅ Message sent with presence sequence`);
+        return { success: true, presenceUsed: true, extendedOnline: false };
+      }
+    } else {
+      // Send message without presence (normal flow)
+      return await sendMessageWithoutPresence(
+        client,
+        jid,
+        message,
+        recipientVariables
+      );
+    }
+  } catch (err) {
+    console.error("❌ sendMessage error:", err.message);
+    throw new Error(`Message send failed: ${err.message}`);
+  }
+}
+
+/**
+ * Send message without presence (internal function)
+ * @param {Object} client - WhatsApp client
+ * @param {String} jid - Recipient JID
+ * @param {Object} message - Message object
+ * @param {Object} recipientVariables - Variables to substitute
+ */
+async function sendMessageWithoutPresence(
+  client,
+  jid,
+  message,
+  recipientVariables
+) {
+  try {
     switch (message.type) {
       case "text":
         const substitutedText = substituteVariables(
@@ -125,6 +213,10 @@ export async function sendMessage(
           recipientVariables
         );
 
+        // Check if it's a URL or local file
+        const isUrl =
+          mediaPath.startsWith("http://") || mediaPath.startsWith("https://");
+
         // Handle different media types properly
         if (message.media.type === "document") {
           // For CSV files, ensure proper MIME type handling
@@ -137,19 +229,41 @@ export async function sendMessage(
             finalMimeType = "text/csv";
           }
 
-          await client.sendMessage(jid, {
-            document: fs.readFileSync(mediaPath),
-            caption: substitutedCaption,
-            fileName: message.media.fileName || "",
-            mimetype: finalMimeType,
-          });
+          if (isUrl) {
+            // Send URL directly for documents
+            await client.sendMessage(jid, {
+              document: { url: mediaPath },
+              caption: substitutedCaption,
+              fileName: message.media.fileName || "",
+              mimetype: finalMimeType,
+            });
+          } else {
+            // Read local file
+            await client.sendMessage(jid, {
+              document: fs.readFileSync(mediaPath),
+              caption: substitutedCaption,
+              fileName: message.media.fileName || "",
+              mimetype: finalMimeType,
+            });
+          }
         } else {
-          await client.sendMessage(jid, {
-            [message.media.type]: fs.readFileSync(mediaPath),
-            caption: substitutedCaption,
-            fileName: message.media.fileName || "",
-            mimeType: message.media.mimeType || "",
-          });
+          if (isUrl) {
+            // Send URL directly for images/videos/audio
+            await client.sendMessage(jid, {
+              [message.media.type]: { url: mediaPath },
+              caption: substitutedCaption,
+              fileName: message.media.fileName || "",
+              mimeType: message.media.mimeType || "",
+            });
+          } else {
+            // Read local file
+            await client.sendMessage(jid, {
+              [message.media.type]: fs.readFileSync(mediaPath),
+              caption: substitutedCaption,
+              fileName: message.media.fileName || "",
+              mimeType: message.media.mimeType || "",
+            });
+          }
         }
         break;
 
@@ -163,6 +277,11 @@ export async function sendMessage(
           recipientVariables
         );
 
+        // Check if it's a URL or local file
+        const isMixedUrl =
+          mixedMediaPath.startsWith("http://") ||
+          mixedMediaPath.startsWith("https://");
+
         // Handle different media types properly for mixed messages
         if (message.media.type === "document") {
           // For CSV files, ensure proper MIME type handling
@@ -175,19 +294,41 @@ export async function sendMessage(
             finalMimeType = "text/csv";
           }
 
-          await client.sendMessage(jid, {
-            document: fs.readFileSync(mixedMediaPath),
-            caption: mixedSubstitutedText,
-            fileName: message.media.fileName || "",
-            mimetype: finalMimeType,
-          });
+          if (isMixedUrl) {
+            // Send URL directly for documents
+            await client.sendMessage(jid, {
+              document: { url: mixedMediaPath },
+              caption: mixedSubstitutedText,
+              fileName: message.media.fileName || "",
+              mimetype: finalMimeType,
+            });
+          } else {
+            // Read local file
+            await client.sendMessage(jid, {
+              document: fs.readFileSync(mixedMediaPath),
+              caption: mixedSubstitutedText,
+              fileName: message.media.fileName || "",
+              mimetype: finalMimeType,
+            });
+          }
         } else {
-          await client.sendMessage(jid, {
-            [message.media.type]: fs.readFileSync(mixedMediaPath),
-            caption: mixedSubstitutedText,
-            fileName: message.media.fileName || "",
-            mimeType: message.media.mimeType || "",
-          });
+          if (isMixedUrl) {
+            // Send URL directly for images/videos/audio
+            await client.sendMessage(jid, {
+              [message.media.type]: { url: mixedMediaPath },
+              caption: mixedSubstitutedText,
+              fileName: message.media.fileName || "",
+              mimeType: message.media.mimeType || "",
+            });
+          } else {
+            // Read local file
+            await client.sendMessage(jid, {
+              [message.media.type]: fs.readFileSync(mixedMediaPath),
+              caption: mixedSubstitutedText,
+              fileName: message.media.fileName || "",
+              mimeType: message.media.mimeType || "",
+            });
+          }
         }
         break;
 
@@ -197,7 +338,7 @@ export async function sendMessage(
 
     return { success: true };
   } catch (err) {
-    console.error("❌ sendMessage error:", err.message);
+    console.error("❌ sendMessageWithoutPresence error:", err.message);
     throw new Error(`Message send failed: ${err.message}`);
   }
 }

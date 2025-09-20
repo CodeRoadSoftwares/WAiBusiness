@@ -13,6 +13,7 @@ import Campaign from "./features/campaign/Campaign";
 import CreateAudience from "./features/audience/CreateAudience";
 import CreateTemplate from "./features/template/CreateTemplate";
 import Campaigns from "./features/campaign/Campaigns";
+import Documentation from "./features/docs/Documentation";
 
 function App() {
   return (
@@ -84,7 +85,7 @@ function App() {
             element={
               <AuthGuard mode="private">
                 <Main>
-                <Campaigns />
+                  <Campaigns />
                 </Main>
               </AuthGuard>
             }
@@ -115,6 +116,16 @@ function App() {
               <AuthGuard mode="private">
                 <Main>
                   <CreateCampaign />
+                </Main>
+              </AuthGuard>
+            }
+          />
+          <Route
+            path="/docs"
+            element={
+              <AuthGuard mode="private">
+                <Main>
+                  <Documentation />
                 </Main>
               </AuthGuard>
             }

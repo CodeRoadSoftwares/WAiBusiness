@@ -1,4 +1,5 @@
 import { CampaignManager } from "./managers/campaign.manager.js";
+import { CampaignRepository } from "./repositories/campaign.repository.js";
 import { launchCampaign } from "./services/launchCampaign.service.js";
 
 const createCampaign = async (req, res) => {
@@ -233,8 +234,27 @@ const getCampaignsCount = async (req, res) => {
   }
 };
 
+const getNumOfSentMessages = async (req, res) => {
+  try {
+    const numOfSentMessages = await CampaignRepository.getNumOfSentMessages(
+      req.user.id
+    );
+    res.status(200).json({
+      success: true,
+      data: numOfSentMessages,
+    });
+  } catch (error) {
+    console.error("Num of sent messages error:", error);
+    res.status(500).json({
+      error: "Failed to get num of sent messages",
+      message: error.message,
+    });
+  }
+};
+
 export const CampaignController = {
   createCampaign,
   getCampaigns,
   getCampaignsCount,
+  getNumOfSentMessages,
 };

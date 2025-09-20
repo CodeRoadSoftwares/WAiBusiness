@@ -9,6 +9,7 @@ import { sessionHealthService } from "../../whatsapp/sessions/services/sessionHe
 import { CampaignMessageService } from "../../whatsapp/campaigns/services/campaignMessage.service.js";
 import { dynamicConfigService } from "../../utils/dynamicConfig.util.js";
 import { whatsappRateLimiter } from "../../utils/whatsappRateLimiter.util.js";
+import { DirectMessageService } from "../../whatsapp/messages/services/directMessage.service.js";
 
 // More Efficient Approach - Batch Processing
 export const campaignWorker = new Worker(
@@ -70,7 +71,7 @@ export const campaignWorker = new Worker(
               },
             },
             {
-              delay: i * 2000, // 2 second delay between batches
+              delay: Math.max(0, Number(i * 2000) || 0), // 2 second delay between batches
               attempts: 3,
               backoff: { type: "exponential", delay: 2000 },
             }
@@ -156,8 +157,15 @@ export const campaignWorker = new Worker(
               message,
             },
             {
-              delay: batchRateLimitResult.waitTime,
-              attempts: job.opts.attempts - job.attempts + 1,
+              delay: Math.max(0, Number(batchRateLimitResult.waitTime) || 0),
+              attempts: Math.max(
+                1,
+                Number.isFinite(
+                  Number((job.opts.attempts ?? 3) - job.attempts + 1)
+                )
+                  ? (job.opts.attempts ?? 3) - job.attempts + 1
+                  : 3
+              ),
               backoff: { type: "exponential", delay: 5000 },
               removeOnComplete: false,
               removeOnFail: false,
@@ -389,8 +397,15 @@ export const campaignWorker = new Worker(
 
           // Requeue the message with delay
           await campaignQueue.add("send-message", job.data, {
-            delay: messageRateLimitResult.waitTime,
-            attempts: job.opts.attempts - job.attempts + 1,
+            delay: Math.max(0, Number(messageRateLimitResult.waitTime) || 0),
+            attempts: Math.max(
+              1,
+              Number.isFinite(
+                Number((job.opts.attempts ?? 3) - job.attempts + 1)
+              )
+                ? (job.opts.attempts ?? 3) - job.attempts + 1
+                : 3
+            ),
             backoff: { type: "exponential", delay: 5000 },
           });
 
@@ -690,9 +705,9 @@ export const campaignWorker = new Worker(
   },
   {
     connection: redis,
-    concurrency: 3, // Will be updated dynamically
-    removeOnComplete: 100,
-    removeOnFail: 50,
+    concurrency: 1, // Start with lower concurrency
+    removeOnComplete: false, // Keep completed jobs for debugging
+    removeOnFail: false, // Keep failed jobs for debugging
     stalledInterval: 30000,
     maxStalledCount: 1,
   }

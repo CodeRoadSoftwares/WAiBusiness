@@ -24,55 +24,46 @@ export class RateLimiter {
     const windowStart = now - this.windowSize;
 
     try {
-      // Use Lua script for atomic operations
-      const luaScript = `
-        local key = KEYS[1]
-        local window_start = tonumber(ARGV[1])
-        local now = tonumber(ARGV[2])
-        local window_size = tonumber(ARGV[3])
-        local max_requests = tonumber(ARGV[4])
-        local tokens = tonumber(ARGV[5])
-        
-        -- Remove expired entries
-        redis.call('ZREMRANGEBYSCORE', key, 0, window_start)
-        
-        -- Count current requests in window
-        local current_count = redis.call('ZCARD', key)
-        
-        -- Check if we can add more requests
-        if current_count + tokens > max_requests then
-          return {0, current_count, now + window_size}
-        end
-        
-        -- Add new requests with current timestamp as score
-        for i = 1, tokens do
-          redis.call('ZADD', key, now + i, now + i)
-        end
-        
-        -- Set expiration
-        redis.call('EXPIRE', key, math.ceil(window_size / 1000))
-        
-        return {1, max_requests - current_count - tokens, now + window_size}
-      `;
+      // Use a simpler approach to avoid serialization issues
+      // Remove expired entries first
+      await this.redis.zremrangebyscore(key, 0, windowStart);
 
-      const result = await this.redis.eval(
-        luaScript,
-        1,
-        key,
-        windowStart,
-        now,
-        this.windowSize,
-        this.maxRequests,
-        tokens
-      );
+      // Count current requests in window
+      const currentCount = await this.redis.zcard(key);
 
-      const [allowed, remaining, resetTime] = result;
+      // Check if we can add more requests
+      if (currentCount + tokens > this.maxRequests) {
+        const resetTime = now + this.windowSize;
+        const waitTime = Math.max(0, this.windowSize);
+
+        return {
+          allowed: false,
+          remaining: Math.max(0, this.maxRequests - currentCount),
+          resetTime: resetTime,
+          waitTime: waitTime,
+        };
+      }
+
+      // Add new requests with current timestamp as score
+      const pipeline = this.redis.pipeline();
+      for (let i = 0; i < tokens; i++) {
+        const score = now + i * 0.001; // Add small increment to avoid duplicates
+        const member = `${now}_${i}_${Math.random().toString(36).substr(2, 9)}`; // Unique member
+        pipeline.zadd(key, score, member);
+      }
+
+      // Set expiration
+      pipeline.expire(key, Math.ceil(this.windowSize / 1000));
+
+      await pipeline.exec();
+
+      const resetTime = now + this.windowSize;
 
       return {
-        allowed: allowed === 1,
-        remaining: remaining,
+        allowed: true,
+        remaining: Math.max(0, this.maxRequests - currentCount - tokens),
         resetTime: resetTime,
-        waitTime: allowed === 0 ? Math.max(0, resetTime - now) : 0,
+        waitTime: 0,
       };
     } catch (error) {
       console.error("Rate limiter error:", error);
