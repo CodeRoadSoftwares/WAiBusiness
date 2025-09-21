@@ -10,79 +10,149 @@ import { CampaignMessageService } from "../../whatsapp/campaigns/services/campai
 import { dynamicConfigService } from "../../utils/dynamicConfig.util.js";
 import { whatsappRateLimiter } from "../../utils/whatsappRateLimiter.util.js";
 
+// Database connection is handled by the main app in index.js
+
 // More Efficient Approach - Batch Processing
 export const campaignWorker = new Worker(
   "campaignQueue",
   async (job) => {
     if (job.name === "start-campaign") {
       const { campaignId } = job.data;
-      const campaign = await Campaign.findById(campaignId);
 
-      // Calculate total recipients across all variants
-      const totalRecipients = campaign.messageVariants.reduce(
-        (sum, variant) => sum + variant.recipients.length,
-        0
-      );
+      try {
+        console.log(`🚀 Starting campaign ${campaignId}...`);
 
-      campaign.status = "running";
-      campaign.totalRecipients = totalRecipients;
-      campaign.processedRecipients = 0; // Reset in case of retry
-      await campaign.save();
 
-      // Get adaptive batch size based on message type and system load
-      const systemMetrics = await dynamicConfigService.getSystemMetrics();
-      const batchSize = await dynamicConfigService.getAdaptiveBatchSize(
-        campaign.messageVariants[0]?.type || "text",
-        systemMetrics
-      );
+        // Convert string ID to ObjectId
+        const campaignObjectId = new mongoose.Types.ObjectId(campaignId);
+        const campaign = await Campaign.findById(campaignObjectId);
+        if (!campaign) {
+          console.error(`❌ Campaign ${campaignId} not found in database`);
+          console.log("📊 Available campaigns:");
+          const allCampaigns = await Campaign.find({}).select(
+            "_id name status"
+          );
+          allCampaigns.forEach((c) =>
+            console.log(`  - ${c._id}: ${c.name} (${c.status})`)
+          );
+          throw new Error(`Campaign ${campaignId} not found`);
+        }
 
-      console.log(
-        `📊 Using adaptive batch size: ${batchSize} for campaign ${campaignId}`
-      );
+        console.log(`📊 Campaign found: ${campaign.name}`);
+        console.log(`📊 Variants: ${campaign.messageVariants.length}`);
 
-      for (let variant of campaign.messageVariants) {
-        const recipients = variant.recipients;
-
-        // Create campaign messages in bulk for efficient tracking
-        await CampaignMessageService.createMessages(
-          campaignId,
-          campaign.userId.toString(),
-          variant.variantName,
-          recipients
+        // Calculate total recipients across all variants
+        const totalRecipients = campaign.messageVariants.reduce(
+          (sum, variant) => sum + variant.recipients.length,
+          0
         );
 
-        // Split recipients into adaptive batches
-        for (let i = 0; i < recipients.length; i += batchSize) {
-          const batch = recipients.slice(i, i + batchSize);
+        console.log(`📊 Total recipients: ${totalRecipients}`);
 
-          await campaignQueue.add(
-            "send-batch",
-            {
-              campaignId,
-              userId: campaign.userId.toString(),
-              variantName: variant.variantName,
-              recipients: batch,
-              message: {
-                type: variant.type,
-                text: variant.message,
-                media: variant.media,
-                templateId: variant.templateId,
-              },
-            },
-            {
-              delay: i * 2000, // 2 second delay between batches
-              attempts: 3,
-              backoff: { type: "exponential", delay: 2000 },
-            }
+        campaign.status = "running";
+        campaign.totalRecipients = totalRecipients;
+        campaign.processedRecipients = 0; // Reset in case of retry
+        await campaign.save();
+
+        console.log(`✅ Campaign status updated to running`);
+
+        // Get adaptive batch size based on message type and system load
+        const systemMetrics = await dynamicConfigService.getSystemMetrics();
+        const batchSize = await dynamicConfigService.getAdaptiveBatchSize(
+          campaign.messageVariants[0]?.type || "text",
+          systemMetrics
+        );
+
+        console.log(
+          `📊 Using adaptive batch size: ${batchSize} for campaign ${campaignId}`
+        );
+
+        let totalBatchesCreated = 0;
+
+        for (let variant of campaign.messageVariants) {
+          const recipients = variant.recipients;
+          console.log(
+            `📊 Processing variant ${variant.variantName} with ${recipients.length} recipients`
           );
+
+          // Create campaign messages in bulk for efficient tracking
+          console.log(
+            `📝 Creating campaign messages for variant ${variant.variantName}...`
+          );
+          const createdMessages = await CampaignMessageService.createMessages(
+            campaignId,
+            campaign.userId.toString(),
+            variant.variantName,
+            recipients
+          );
+          console.log(`✅ Created ${createdMessages.length} campaign messages`);
+
+          // Split recipients into adaptive batches with unique job IDs
+          const batches = [];
+          for (let i = 0; i < recipients.length; i += batchSize) {
+            const batch = recipients.slice(i, i + batchSize);
+            const batchId = `${campaignId}_${variant.variantName}_${i}`;
+            batches.push({ batch, batchId, delay: i * 2000 });
+          }
+
+          console.log(
+            `📦 Creating ${batches.length} batches for variant ${variant.variantName}`
+          );
+
+          for (const { batch, batchId, delay } of batches) {
+            await campaignQueue.add(
+              "send-batch",
+              {
+                campaignId,
+                userId: campaign.userId.toString(),
+                variantName: variant.variantName,
+                recipients: batch,
+                batchId, // Add unique batch identifier
+                message: {
+                  type: variant.type,
+                  text: variant.message,
+                  media: variant.media,
+                  templateId: variant.templateId,
+                },
+              },
+              {
+                jobId: batchId, // Use unique job ID to prevent duplicates
+                delay: delay, // 2 second delay between batches
+                attempts: 3,
+                backoff: { type: "exponential", delay: 2000 },
+                removeOnComplete: 10, // Keep only 10 completed jobs
+                removeOnFail: 5, // Keep only 5 failed jobs
+              }
+            );
+            totalBatchesCreated++;
+          }
         }
+
+        console.log(
+          `🎉 Campaign ${campaignId} setup complete! Created ${totalBatchesCreated} batches`
+        );
+      } catch (error) {
+        console.error(
+          `❌ Error in start-campaign job for ${campaignId}:`,
+          error
+        );
+        throw error;
       }
     }
 
     if (job.name === "send-batch") {
-      const { campaignId, userId, recipients, message, variantName } = job.data;
+      const { campaignId, userId, recipients, message, variantName, batchId } =
+        job.data;
+
+      // Generate batchId if not present (for existing jobs)
+      const effectiveBatchId =
+        batchId || `${campaignId}_${variantName}_${job.id}`;
 
       try {
+
+        // Add job heartbeat to prevent stalling
+        await job.updateProgress(0);
+
         // Check session health before processing batch
         const sessionResult = await sessionHealthService.getHealthySession(
           userId,
@@ -91,7 +161,7 @@ export const campaignWorker = new Worker(
 
         if (!sessionResult.isHealthy) {
           console.warn(
-            `⚠️ Session unhealthy for user ${userId}, requeuing batch`
+            `⚠️ Session unhealthy for user ${userId}, requeuing batch ${effectiveBatchId}`
           );
           await sessionHealthService.requeueJobDueToSessionFailure(
             job,
@@ -99,6 +169,15 @@ export const campaignWorker = new Worker(
             60000 // 1 minute delay
           );
           return { requeuedDueToSessionFailure: true };
+        }
+
+        // First, check if campaign exists
+        const campaign = await Campaign.findById(campaignId);
+        if (!campaign) {
+          console.error(
+            `❌ Campaign ${campaignId} not found, removing job ${effectiveBatchId}`
+          );
+          return { skipped: true, reason: "Campaign not found" };
         }
 
         // Get pending messages efficiently using the new service
@@ -117,12 +196,47 @@ export const campaignWorker = new Worker(
         );
 
         if (pendingRecipients.length === 0) {
-          console.log(`⚠️ All recipients in batch already sent, skipping...`);
-          return;
+          console.log(
+            `⚠️ All recipients in batch ${effectiveBatchId} already sent, skipping...`
+          );
+
+          // Check if this was the last batch and cancel remaining jobs
+          const remainingPending =
+            await CampaignMessageService.getPendingMessages(
+              campaignId,
+              variantName,
+              1
+            );
+
+          if (remainingPending.length === 0) {
+            console.log(
+              `🎉 All messages for variant ${variantName} completed!`
+            );
+
+            // Cancel remaining delayed jobs for this campaign
+            const delayedJobs = await campaignQueue.getDelayed();
+            const campaignJobs = delayedJobs.filter(
+              (job) => job.data.campaignId === campaignId
+            );
+
+            if (campaignJobs.length > 0) {
+              console.log(
+                `🧹 Cancelling ${campaignJobs.length} remaining delayed jobs for completed campaign ${campaignId}`
+              );
+              for (const job of campaignJobs) {
+                await job.remove();
+              }
+            }
+          }
+
+          return { skipped: true, reason: "All recipients already sent" };
         }
 
+        console.log(
+          `📦 Processing batch ${effectiveBatchId}: ${pendingRecipients.length}/${recipients.length} pending recipients`
+        );
+
         // Get campaign-specific rate limits
-        const campaign = await Campaign.findById(campaignId);
         const campaignRateLimit = campaign?.rateLimit?.messagesPerMinute || 20;
 
         // Create a campaign-specific rate limiter
@@ -142,7 +256,7 @@ export const campaignWorker = new Worker(
 
         if (!batchRateLimitResult.allowed) {
           console.log(
-            `⏳ Rate limit reached for user ${userId}, requeuing batch with ${batchRateLimitResult.waitTime}ms delay`
+            `⏳ Rate limit reached for user ${userId}, requeuing batch ${effectiveBatchId} with ${batchRateLimitResult.waitTime}ms delay`
           );
 
           // Requeue the entire batch with delay instead of blocking
@@ -153,14 +267,16 @@ export const campaignWorker = new Worker(
               userId,
               variantName,
               recipients: pendingRecipients, // All recipients
+              batchId: effectiveBatchId, // Preserve batch ID
               message,
             },
             {
+              jobId: effectiveBatchId, // Use same job ID to prevent duplicates
               delay: batchRateLimitResult.waitTime,
               attempts: job.opts.attempts - job.attempts + 1,
               backoff: { type: "exponential", delay: 5000 },
-              removeOnComplete: false,
-              removeOnFail: false,
+              removeOnComplete: 10,
+              removeOnFail: 5,
             }
           );
 
@@ -170,8 +286,14 @@ export const campaignWorker = new Worker(
         // Process batch with memory-efficient streaming
         const results = [];
         const updateOps = [];
+        const totalRecipients = pendingRecipients.length;
 
-        for (const recipient of pendingRecipients) {
+        for (let i = 0; i < pendingRecipients.length; i++) {
+          const recipient = pendingRecipients[i];
+
+          // Update job progress to prevent stalling
+          await job.updateProgress(Math.round((i / totalRecipients) * 100));
+
           // Add dynamic delay between messages based on campaign settings
           const delayBetweenMessages =
             campaign?.rateLimit?.delayBetweenMessages || 2000;
@@ -186,11 +308,27 @@ export const campaignWorker = new Worker(
           }
 
           try {
+            console.log(
+              `📤 Attempting to send message to ${recipient.phone} for user ${userId}`
+            );
+            console.log(
+              `📤 Message type: ${
+                message.type
+              }, content: ${message.text?.substring(0, 100)}...`
+            );
+
             await sendMessage(
               userId,
               recipient.phone,
               message,
               recipient.variables || {}
+            );
+
+            console.log(
+              `📤 Recipient ${recipient.phone} exists on WhatsApp: true`
+            );
+            console.log(
+              `📤 Sending message to JID: ${recipient.phone}@s.whatsapp.net`
             );
 
             // Add to bulk update operations instead of accumulating in memory
@@ -216,8 +354,9 @@ export const campaignWorker = new Worker(
               sentAt: new Date(),
             });
           } catch (error) {
+            console.error(`❌ sendMessage error: ${error.message}`);
             console.error(
-              `❌ Failed to send to ${recipient.phone}: ${error.message}`
+              `❌ Failed to send to ${recipient.phone}: Message send failed: ${error.message}`
             );
 
             // Add to bulk update operations
@@ -278,7 +417,7 @@ export const campaignWorker = new Worker(
         }
 
         console.log(
-          `✅ Batch completed: ${sentCount} sent, ${failedCount} failed`
+          `✅ Batch ${effectiveBatchId} completed: ${sentCount} sent, ${failedCount} failed`
         );
 
         // ✅ ATOMIC COMPLETION CHECK — COUNTER BASED
@@ -341,6 +480,9 @@ export const campaignWorker = new Worker(
           error.message?.includes("WhatsApp") ||
           error.message?.includes("client")
         ) {
+          console.warn(
+            `⚠️ Session error in batch ${effectiveBatchId}, requeuing...`
+          );
           await sessionHealthService.requeueJobDueToSessionFailure(
             job,
             `Session error: ${error.message}`,
@@ -350,6 +492,7 @@ export const campaignWorker = new Worker(
         }
 
         // For other errors, let the job fail and retry
+        console.error(`💥 Campaign worker error: ${error.message}`);
         throw error;
       }
     }
@@ -690,11 +833,13 @@ export const campaignWorker = new Worker(
   },
   {
     connection: redis,
-    concurrency: 3, // Will be updated dynamically
-    removeOnComplete: 100,
-    removeOnFail: 50,
-    stalledInterval: 30000,
-    maxStalledCount: 1,
+    concurrency: 2, // Reduced to prevent resource contention
+    removeOnComplete: 10, // Reduced to prevent Redis memory issues
+    removeOnFail: 5, // Reduced to prevent Redis memory issues
+    stalledInterval: 15000, // Reduced stalled interval
+    maxStalledCount: 2, // Allow more stalled jobs before failing
+    lockDuration: 300000, // 5 minutes lock duration
+    lockRenewTime: 30000, // Renew lock every 30 seconds
   }
 );
 
@@ -755,11 +900,14 @@ setInterval(async () => {
     const adaptiveConcurrency =
       await dynamicConfigService.getAdaptiveConcurrency(systemMetrics);
 
-    if (adaptiveConcurrency !== campaignWorker.opts.concurrency) {
+    // Cap concurrency to prevent resource exhaustion
+    const maxConcurrency = Math.min(adaptiveConcurrency, 3);
+
+    if (maxConcurrency !== campaignWorker.opts.concurrency) {
       console.log(
-        `🔄 Adjusting worker concurrency from ${campaignWorker.opts.concurrency} to ${adaptiveConcurrency}`
+        `🔄 Adjusting worker concurrency from ${campaignWorker.opts.concurrency} to ${maxConcurrency}`
       );
-      campaignWorker.opts.concurrency = adaptiveConcurrency;
+      campaignWorker.opts.concurrency = maxConcurrency;
     }
   } catch (error) {
     console.error("Failed to adjust worker concurrency:", error);
