@@ -4,11 +4,8 @@ import mongoose from "mongoose";
 import Campaign from "../../whatsapp/campaigns/campaign.model.js";
 import { sendMessage } from "../../whatsapp/messages/services/messageSender.service.js";
 import { campaignQueue } from "../queues/campaign.queue.js";
-import { defaultRateLimiter } from "../../utils/rateLimiter.util.js";
 import { sessionHealthService } from "../../whatsapp/sessions/services/sessionHealth.service.js";
 import { CampaignMessageService } from "../../whatsapp/campaigns/services/campaignMessage.service.js";
-import { dynamicConfigService } from "../../utils/dynamicConfig.util.js";
-import { whatsappRateLimiter } from "../../utils/whatsappRateLimiter.util.js";
 
 // Database connection is handled by the main app in index.js
 
@@ -21,7 +18,6 @@ export const campaignWorker = new Worker(
 
       try {
         console.log(`🚀 Starting campaign ${campaignId}...`);
-
 
         // Convert string ID to ObjectId
         const campaignObjectId = new mongoose.Types.ObjectId(campaignId);
@@ -56,12 +52,8 @@ export const campaignWorker = new Worker(
 
         console.log(`✅ Campaign status updated to running`);
 
-        // Get adaptive batch size based on message type and system load
-        const systemMetrics = await dynamicConfigService.getSystemMetrics();
-        const batchSize = await dynamicConfigService.getAdaptiveBatchSize(
-          campaign.messageVariants[0]?.type || "text",
-          systemMetrics
-        );
+        // Use fixed batch size (dynamic config removed)
+        const batchSize = 20;
 
         console.log(
           `📊 Using adaptive batch size: ${batchSize} for campaign ${campaignId}`
@@ -92,7 +84,7 @@ export const campaignWorker = new Worker(
           for (let i = 0; i < recipients.length; i += batchSize) {
             const batch = recipients.slice(i, i + batchSize);
             const batchId = `${campaignId}_${variant.variantName}_${i}`;
-            batches.push({ batch, batchId, delay: i * 2000 });
+            batches.push({ batch, batchId, delay: i * 500 }); // Reduced from 2000ms to 500ms
           }
 
           console.log(
@@ -149,7 +141,6 @@ export const campaignWorker = new Worker(
         batchId || `${campaignId}_${variantName}_${job.id}`;
 
       try {
-
         // Add job heartbeat to prevent stalling
         await job.updateProgress(0);
 
@@ -180,20 +171,21 @@ export const campaignWorker = new Worker(
           return { skipped: true, reason: "Campaign not found" };
         }
 
-        // Get pending messages efficiently using the new service
-        const pendingMessages = await CampaignMessageService.getPendingMessages(
+        // Atomically claim this batch's phones to avoid double processing across batches
+        const batchPhones = recipients.map((r) => r.phone);
+        const claimedPhones = await CampaignMessageService.claimPendingByPhones(
           campaignId,
           variantName,
-          recipients.length
+          batchPhones
         );
 
-        // Create a set of pending phone numbers for quick lookup
-        const pendingPhones = new Set(pendingMessages.map((msg) => msg.phone));
-
-        // Filter out already sent recipients
-        const pendingRecipients = recipients.filter((rec) =>
-          pendingPhones.has(rec.phone)
+        const claimedSet = new Set(claimedPhones);
+        const pendingRecipients = recipients.filter((r) =>
+          claimedSet.has(r.phone)
         );
+
+        console.log("claimedPhones:", claimedPhones);
+        console.log("pendingRecipients:", pendingRecipients);
 
         if (pendingRecipients.length === 0) {
           console.log(
@@ -236,53 +228,6 @@ export const campaignWorker = new Worker(
           `📦 Processing batch ${effectiveBatchId}: ${pendingRecipients.length}/${recipients.length} pending recipients`
         );
 
-        // Get campaign-specific rate limits
-        const campaignRateLimit = campaign?.rateLimit?.messagesPerMinute || 20;
-
-        // Create a campaign-specific rate limiter
-        const campaignRateLimiter = new (
-          await import("../../utils/rateLimiter.util.js")
-        ).RateLimiter({
-          windowSize: 60000, // 1 minute
-          maxRequests: campaignRateLimit,
-          keyPrefix: `campaign_rate_limit_${campaignId}`,
-        });
-
-        // Check rate limit using campaign-specific limiter
-        const batchRateLimitResult = await campaignRateLimiter.checkAndConsume(
-          userId,
-          1
-        );
-
-        if (!batchRateLimitResult.allowed) {
-          console.log(
-            `⏳ Rate limit reached for user ${userId}, requeuing batch ${effectiveBatchId} with ${batchRateLimitResult.waitTime}ms delay`
-          );
-
-          // Requeue the entire batch with delay instead of blocking
-          await campaignQueue.add(
-            "send-batch",
-            {
-              campaignId,
-              userId,
-              variantName,
-              recipients: pendingRecipients, // All recipients
-              batchId: effectiveBatchId, // Preserve batch ID
-              message,
-            },
-            {
-              jobId: effectiveBatchId, // Use same job ID to prevent duplicates
-              delay: batchRateLimitResult.waitTime,
-              attempts: job.opts.attempts - job.attempts + 1,
-              backoff: { type: "exponential", delay: 5000 },
-              removeOnComplete: 10,
-              removeOnFail: 5,
-            }
-          );
-
-          return { requeuedDueToRateLimit: true };
-        }
-
         // Process batch with memory-efficient streaming
         const results = [];
         const updateOps = [];
@@ -293,19 +238,6 @@ export const campaignWorker = new Worker(
 
           // Update job progress to prevent stalling
           await job.updateProgress(Math.round((i / totalRecipients) * 100));
-
-          // Add dynamic delay between messages based on campaign settings
-          const delayBetweenMessages =
-            campaign?.rateLimit?.delayBetweenMessages || 2000;
-          const randomDelay = campaign?.rateLimit?.randomDelay
-            ? Math.random() * delayBetweenMessages * 0.5
-            : 0; // Add up to 50% random delay
-
-          if (delayBetweenMessages > 0) {
-            await new Promise((resolve) =>
-              setTimeout(resolve, delayBetweenMessages + randomDelay)
-            );
-          }
 
           try {
             console.log(
@@ -331,7 +263,12 @@ export const campaignWorker = new Worker(
               `📤 Sending message to JID: ${recipient.phone}@s.whatsapp.net`
             );
 
-            // Add to bulk update operations instead of accumulating in memory
+            // Small delay between messages to prevent overwhelming WhatsApp
+            if (i < pendingRecipients.length - 1) {
+              await new Promise((resolve) => setTimeout(resolve, 100)); // 100ms delay
+            }
+
+            // Add to bulk update operations: mark as sent (previously set to processing)
             updateOps.push({
               updateOne: {
                 filter: {
@@ -359,7 +296,7 @@ export const campaignWorker = new Worker(
               `❌ Failed to send to ${recipient.phone}: Message send failed: ${error.message}`
             );
 
-            // Add to bulk update operations
+            // Add to bulk update operations: mark as failed
             updateOps.push({
               updateOne: {
                 filter: {
@@ -388,6 +325,7 @@ export const campaignWorker = new Worker(
         if (updateOps.length > 0) {
           try {
             await CampaignMessageService.updateMessagesBulk(updateOps);
+            console.log("✅ Messages updated in bulk");
           } catch (error) {
             console.error("Failed to update message status in bulk:", error);
             // Continue processing even if bulk update fails
@@ -411,6 +349,7 @@ export const campaignWorker = new Worker(
             },
             { arrayFilters: [{ "v.variantName": variantName }] }
           );
+          console.log("✅ Campaign metrics updated");
         } catch (error) {
           console.error("Failed to update campaign metrics:", error);
           // Continue processing even if metrics update fails
@@ -430,7 +369,7 @@ export const campaignWorker = new Worker(
             },
             { new: true }
           );
-
+          console.log("✅ Campaign updated");
           // Check if all recipients processed
           if (
             updatedCampaign.processedRecipients >=
@@ -448,7 +387,7 @@ export const campaignWorker = new Worker(
                 },
               }
             );
-
+            console.log("✅ Campaign marked as completed");
             if (completionResult.modifiedCount > 0) {
               console.log(`✅ Campaign ${campaignId} marked as completed`);
             } else {
@@ -519,26 +458,6 @@ export const campaignWorker = new Worker(
           return { requeuedDueToSessionFailure: true };
         }
 
-        // Check rate limit
-        const messageRateLimitResult = await defaultRateLimiter.checkAndConsume(
-          userId,
-          1
-        );
-
-        if (!messageRateLimitResult.allowed) {
-          console.log(
-            `⏳ Rate limit reached for user ${userId}, requeuing message with ${messageRateLimitResult.waitTime}ms delay`
-          );
-
-          // Requeue the message with delay
-          await campaignQueue.add("send-message", job.data, {
-            delay: messageRateLimitResult.waitTime,
-            attempts: job.opts.attempts - job.attempts + 1,
-            backoff: { type: "exponential", delay: 5000 },
-          });
-
-          return { requeuedDueToRateLimit: true };
-        }
         // Check if message was already sent to this phone number in any variant
         const existingCampaign = await Campaign.findById(campaignId);
         const alreadySent = existingCampaign.messageVariants.some((variant) =>
@@ -580,24 +499,7 @@ export const campaignWorker = new Worker(
           return; // Skip sending
         }
 
-        // Check rate limit before sending
-        const singleMessageRateLimitResult =
-          await defaultRateLimiter.checkAndConsume(userId, 1);
-
-        if (!singleMessageRateLimitResult.allowed) {
-          console.log(
-            `⏳ Rate limit reached for user ${userId}, requeuing message with ${singleMessageRateLimitResult.waitTime}ms delay`
-          );
-
-          // Requeue the message with delay
-          await campaignQueue.add("send-message", job.data, {
-            delay: singleMessageRateLimitResult.waitTime,
-            attempts: job.opts.attempts - job.attempts + 1,
-            backoff: { type: "exponential", delay: 5000 },
-          });
-
-          return { requeuedDueToRateLimit: true };
-        }
+        // Rate limiting disabled
 
         // Add retry logic with exponential backoff
         let retryCount = 0;
@@ -701,7 +603,7 @@ export const campaignWorker = new Worker(
           },
           { new: true }
         );
-
+        console.log("✅ Campaign updated");
         if (
           updatedCampaign.processedRecipients >= updatedCampaign.totalRecipients
         ) {
@@ -717,7 +619,7 @@ export const campaignWorker = new Worker(
               },
             }
           );
-
+          console.log("✅ Campaign marked as completed");
           if (completionResult.modifiedCount > 0) {
             console.log(`✅ Campaign ${campaignId} marked as completed`);
           } else {
@@ -833,13 +735,13 @@ export const campaignWorker = new Worker(
   },
   {
     connection: redis,
-    concurrency: 2, // Reduced to prevent resource contention
+    concurrency: 5, // Increased from 2 to 5 for faster processing
     removeOnComplete: 10, // Reduced to prevent Redis memory issues
     removeOnFail: 5, // Reduced to prevent Redis memory issues
-    stalledInterval: 15000, // Reduced stalled interval
-    maxStalledCount: 2, // Allow more stalled jobs before failing
-    lockDuration: 300000, // 5 minutes lock duration
-    lockRenewTime: 30000, // Renew lock every 30 seconds
+    stalledInterval: 30000, // Increased from 15s to 30s to prevent false stalls
+    maxStalledCount: 3, // Allow more stalled jobs before failing
+    lockDuration: 120000, // Reduced from 5 minutes to 2 minutes
+    lockRenewTime: 15000, // Reduced from 30s to 15s for faster lock renewal
   }
 );
 
@@ -892,24 +794,3 @@ export const getQueueStatus = async () => {
 
 // Check queue status every 30 seconds
 setInterval(getQueueStatus, 30000);
-
-// Dynamic concurrency adjustment every 2 minutes
-setInterval(async () => {
-  try {
-    const systemMetrics = await dynamicConfigService.getSystemMetrics();
-    const adaptiveConcurrency =
-      await dynamicConfigService.getAdaptiveConcurrency(systemMetrics);
-
-    // Cap concurrency to prevent resource exhaustion
-    const maxConcurrency = Math.min(adaptiveConcurrency, 3);
-
-    if (maxConcurrency !== campaignWorker.opts.concurrency) {
-      console.log(
-        `🔄 Adjusting worker concurrency from ${campaignWorker.opts.concurrency} to ${maxConcurrency}`
-      );
-      campaignWorker.opts.concurrency = maxConcurrency;
-    }
-  } catch (error) {
-    console.error("Failed to adjust worker concurrency:", error);
-  }
-}, 120000); // 2 minutes
