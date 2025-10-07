@@ -28,7 +28,7 @@ const CampaignMessageSchema = new mongoose.Schema(
     variables: { type: Map, of: String },
     status: {
       type: String,
-      enum: ["pending", "sent", "delivered", "read", "failed", "skipped"],
+      enum: ["pending", "processing", "sent", "delivered", "read", "failed", "skipped"],
       default: "pending",
       index: true,
     },
