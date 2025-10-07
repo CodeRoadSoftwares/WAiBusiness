@@ -15,6 +15,7 @@ export const launchCampaign = async (campaignId) => {
       "start-campaign",
       { campaignId },
       {
+        jobId: `${campaignId}`,
         attempts: 3,
         backoff: { type: "exponential", delay: 2000 },
         removeOnComplete: 100,
@@ -48,6 +49,7 @@ export const launchCampaign = async (campaignId) => {
       "start-campaign",
       { campaignId },
       {
+        jobId: `${campaignId}`,
         attempts: 3, // retries
         backoff: { type: "exponential", delay: 5000 },
         removeOnComplete: 1000,
@@ -64,6 +66,7 @@ export const launchCampaign = async (campaignId) => {
       "start-campaign",
       { campaignId },
       {
+        jobId: `${campaignId}`,
         attempts: 3, // retries
         backoff: { type: "exponential", delay: 5000 },
         removeOnComplete: 1000,
