@@ -43,6 +43,40 @@ export class CampaignMessageService {
   }
 
   /**
+   * Atomically claim pending messages for a set of phones by marking them as processing.
+   * Returns the list of phones successfully claimed.
+   * @param {string} campaignId
+   * @param {string} variantName
+   * @param {Array<string>} phones
+   * @returns {Promise<Array<string>>}
+   */
+  static async claimPendingByPhones(campaignId, variantName, phones = []) {
+    if (!phones.length) return [];
+
+    const result = await CampaignMessage.updateMany(
+      {
+        campaignId: new mongoose.Types.ObjectId(campaignId),
+        variantName,
+        phone: { $in: phones },
+        status: "pending",
+      },
+      {
+        $set: { status: "processing", updatedAt: new Date() },
+      }
+    );
+
+    // Fetch the actually claimed docs to get accurate set (in case of races)
+    const claimed = await CampaignMessage.find({
+      campaignId: new mongoose.Types.ObjectId(campaignId),
+      variantName,
+      phone: { $in: phones },
+      status: "processing",
+    }).select("phone");
+
+    return claimed.map((d) => d.phone);
+  }
+
+  /**
    * Check if phone number was already sent to in any variant
    * @param {string} campaignId - Campaign ID
    * @param {string} phone - Phone number
