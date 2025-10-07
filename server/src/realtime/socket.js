@@ -61,11 +61,11 @@ export function createSocketServer(httpServer) {
   console.log("Socket.IO server created successfully");
 
   io.on("connection", (socket) => {
-    console.log(
-      "New socket connection attempt from:",
-      socket.handshake.address
-    );
-    console.log("Socket headers:", socket.handshake.headers);
+    // console.log(
+    //   "New socket connection attempt from:",
+    //   socket.handshake.address
+    // );
+    // console.log("Socket headers:", socket.handshake.headers);
 
     const user = authenticateSocket(socket);
     if (!user) {
@@ -75,14 +75,14 @@ export function createSocketServer(httpServer) {
       return;
     }
 
-    console.log("Socket authenticated successfully for user:", user.id);
+    // console.log("Socket authenticated successfully for user:", user.id);
 
     socket.on("start-whatsapp-session", async (payload) => {
-      console.log(
-        "🎯 Socket event 'start-whatsapp-session' received for user:",
-        user.id
-      );
-      console.log("Payload:", payload);
+      // console.log(
+      //   "🎯 Socket event 'start-whatsapp-session' received for user:",
+      //   user.id
+      // );
+      // console.log("Payload:", payload);
       try {
         await startWhatsappSession({ userId: user.id, socket });
       } catch (error) {
@@ -95,13 +95,13 @@ export function createSocketServer(httpServer) {
     });
 
     socket.on("check-whatsapp-status", async () => {
-      console.log("Checking WhatsApp status for user:", user.id);
+      // console.log("Checking WhatsApp status for user:", user.id);
       const status = await getWhatsappSessionStatus(user.id);
       socket.emit("whatsapp-session-update", status);
     });
 
     socket.on("stop-whatsapp-session", () => {
-      console.log("Stopping WhatsApp session for user:", user.id);
+      // console.log("Stopping WhatsApp session for user:", user.id);
       stopWhatsappSession(user.id);
       socket.emit("whatsapp-session-update", { status: "disconnected" });
     });
