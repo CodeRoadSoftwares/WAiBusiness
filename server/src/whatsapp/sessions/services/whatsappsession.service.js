@@ -16,7 +16,12 @@ import { warmUpWhatsappSessions } from "./warmUpSessions.service.js";
 const clientStates = {}; // userId -> "connecting" | "connected" | "failed"
 
 const activeSessions = new Map();
-const logger = P({ level: "warn" });
+// Track per-user Bad MAC repair cooldown to avoid restart loops
+const badMacRepairState = new Map(); // userId -> { suppressUntil: number, repairing: boolean }
+// Suppress noisy WhatsApp decryption errors - these are normal
+const logger = P({
+  level: "silent", // Completely silent to hide decryption noise
+});
 
 // -------- helpers --------
 
@@ -42,7 +47,7 @@ async function convertQRToBase64(qrString) {
 
 // -------- Mongo-backed auth state --------
 async function getMongoAuthState(userId) {
-  console.log("🔍 Loading auth state for user:", userId);
+  // console.log("🔍 Loading auth state for user:", userId);
 
   // ensure a single doc per user; create one if missing
   let doc = await WhatsappSession.findOneAndUpdate(
@@ -71,8 +76,8 @@ async function getMongoAuthState(userId) {
     BufferJSON.reviver
   );
 
-  console.log("✅ Loaded sessionCreds from DB");
-  console.log("📱 registered:", !!creds.registered);
+  // console.log("✅ Loaded sessionCreds from DB");
+  // console.log("📱 registered:", !!creds.registered);
 
   const persist = async ({ saveCreds, saveKeys }) => {
     const update = {};
@@ -90,7 +95,7 @@ async function getMongoAuthState(userId) {
 
     if (Object.keys(update).length) {
       await WhatsappSession.updateOne({ userId }, { $set: update });
-      // console.log("💾 Updated session in DB");
+      console.log("💾 Updated session in DB");
     }
   };
 
@@ -107,11 +112,17 @@ async function getMongoAuthState(userId) {
           if (!keys[type]) keys[type] = {};
           Object.assign(keys[type], typeData);
         }
-        await persist({ saveKeys: true });
+        // Throttled key persistence - save at most once every 30 seconds
+        if (!lastKeySave || Date.now() - lastKeySave > 30000) {
+          await persist({ saveKeys: true });
+          lastKeySave = Date.now();
+        }
       },
       clear: async () => {
         keys = {};
+        // Always save when clearing keys
         await persist({ saveKeys: true });
+        lastKeySave = Date.now();
       },
     },
   };
@@ -151,7 +162,7 @@ export function cleanupStaleConnections() {
       session.lastActivity &&
       now - session.lastActivity > staleThreshold
     ) {
-      console.log(`🧹 Cleaning up stale connection for user: ${userId}`);
+      // console.log(`🧹 Cleaning up stale connection for user: ${userId}`);
       try {
         if (session.sock) {
           session.sock.end();
@@ -221,6 +232,7 @@ export async function startWhatsappSession({ userId, socket }) {
     const { state, saveCreds } = await getMongoAuthState(userId);
 
     let isSavingCreds = false;
+    let lastKeySave = 0; // Track last key save time for throttling
 
     const sock = makeWASocket({
       version,
@@ -254,28 +266,28 @@ export async function startWhatsappSession({ userId, socket }) {
     }, 120_000);
 
     sock.ev.on("creds.update", async (update) => {
-      console.log("🔐 creds.update:", Object.keys(update));
+      // Store previous state to detect actual changes
+      const previousCreds = JSON.stringify(state.creds);
       Object.assign(state.creds, update);
 
       if (update.me || state.creds?.me) {
         state.creds.registered = true;
-        console.log("🎉 Registration completed for:", state.creds.me);
+        // console.log("🎉 Registration completed for:", state.creds.me);
       }
 
-      // Debounce credential saving to prevent race conditions
-      if (!isSavingCreds) {
-        isSavingCreds = true;
-        try {
-          await saveCreds();
-          console.log(
-            "✅ saveCreds() completed (registered:",
-            !!state.creds.registered,
-            ")"
-          );
-        } catch (error) {
-          console.error("❌ Error saving credentials:", error);
-        } finally {
-          isSavingCreds = false;
+      // Only save if credentials actually changed
+      const currentCreds = JSON.stringify(state.creds);
+      if (previousCreds !== currentCreds) {
+        // Debounce credential saving to prevent race conditions
+        if (!isSavingCreds) {
+          isSavingCreds = true;
+          try {
+            await saveCreds();
+          } catch (error) {
+            console.error("❌ Error saving credentials:", error);
+          } finally {
+            isSavingCreds = false;
+          }
         }
       }
     });
@@ -611,7 +623,7 @@ export async function startWhatsappSession({ userId, socket }) {
       }
     });
 
-    sock.ev.on("error", (err) => {
+    sock.ev.on("error", async (err) => {
       console.error("⚠️ Socket error:", err?.message || err);
 
       // Only handle critical errors that require connection closure
@@ -620,6 +632,57 @@ export async function startWhatsappSession({ userId, socket }) {
           "⏰ Critical timeout error detected, closing connection..."
         );
         sock.end();
+      }
+
+      // Proactive repair for libsignal Bad MAC/decrypt errors
+      const msg = String(err?.message || "");
+      if (msg.includes("Bad MAC") || msg.includes("Failed to decrypt")) {
+        try {
+          const now = Date.now();
+          const state = badMacRepairState.get(userId) || {
+            suppressUntil: 0,
+            repairing: false,
+          };
+          // If we're within cooldown or already repairing, skip to avoid loops
+          if (state.repairing || now < state.suppressUntil) {
+            return;
+          }
+          state.repairing = true;
+          state.suppressUntil = now + 60_000; // 1 minute cooldown
+          badMacRepairState.set(userId, state);
+
+          console.log(
+            "🛠️ Detected Bad MAC/decrypt error — refreshing signal sessions (keys only)"
+          );
+          // Clear only signal sessions/keys to force fresh prekey exchange next send/recv
+          // Preserve creds so the device remains paired
+          // Reset session keys map
+          await WhatsappSession.updateOne(
+            { userId },
+            {
+              $set: {
+                sessionKeys: JSON.parse(
+                  JSON.stringify({}, BufferJSON.replacer)
+                ),
+              },
+            }
+          );
+          // End current socket so a new connection reloads fresh keys
+          try {
+            sock.end();
+          } catch {}
+          // Restart after short delay
+          setTimeout(() => startWhatsappSession({ userId, socket }), 1000);
+        } catch (e) {
+          console.warn(
+            "⚠️ Failed to refresh signal sessions:",
+            e?.message || e
+          );
+        } finally {
+          const st = badMacRepairState.get(userId) || {};
+          st.repairing = false;
+          badMacRepairState.set(userId, st);
+        }
       }
     });
   } catch (error) {
