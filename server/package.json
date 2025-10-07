@@ -11,6 +11,8 @@
     "dev": "node --watch index.js"
   },
   "dependencies": {
+    "@bull-board/api": "^6.13.0",
+    "@bull-board/express": "^6.13.0",
     "baileys": "^6.7.18",
     "bcrypt": "^6.0.0",
     "bullmq": "^5.58.2",
