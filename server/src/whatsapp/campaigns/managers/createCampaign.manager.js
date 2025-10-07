@@ -10,7 +10,6 @@ import { AudienceRepository } from "../../audience/repositories/audience.reposit
 import fs from "fs";
 import path from "path";
 import { TemplateRepository } from "../../template/repositories/template.repository.js";
-import { whatsappRateLimiter } from "../../../utils/whatsappRateLimiter.util.js";
 import User from "../../../users/user.model.js";
 
 const createCampaignManager = async (userId, campaignData, files = {}) => {
@@ -408,7 +407,6 @@ const createCampaignManager = async (userId, campaignData, files = {}) => {
           }
         }
 
-        // Calculate dynamic rate limits based on campaign and user data
         const user = await User.findById(userId);
         if (!user) {
           throw new Error("User not found");
@@ -427,32 +425,13 @@ const createCampaignManager = async (userId, campaignData, files = {}) => {
           _id: "temp", // Temporary ID for calculation
         };
 
-        // Calculate optimal rate limits
-        let dynamicRateLimits;
-        try {
-          dynamicRateLimits =
-            await whatsappRateLimiter.calculateOptimalRateLimits(
-              tempCampaign,
-              user,
-              {
-                audienceSize: totalRecipients,
-                messageType:
-                  campaignDataForModel.messageVariants[0]?.type || "text",
-              }
-            );
-        } catch (error) {
-          console.error(
-            "Failed to calculate dynamic rate limits, using defaults:",
-            error
-          );
-          // Use conservative defaults if calculation fails
-          dynamicRateLimits = {
-            messagesPerMinute: 5,
-            maxRetries: 2,
-            randomDelay: true,
-            delayBetweenMessages: 3000,
-          };
-        }
+        // Use conservative defaults
+        const dynamicRateLimits = {
+          messagesPerMinute: 20,
+          maxRetries: 3,
+          randomDelay: false,
+          delayBetweenMessages: 0,
+        };
 
         // Apply dynamic rate limits to campaign
         campaignDataForModel.rateLimit = {
@@ -473,21 +452,6 @@ const createCampaignManager = async (userId, campaignData, files = {}) => {
             };
           }
         });
-
-        console.log(
-          `🎯 Applied dynamic rate limits for campaign ${campaignDataForModel.name}:`,
-          {
-            campaign: {
-              messagesPerMinute: dynamicRateLimits.messagesPerMinute,
-              maxRetries: dynamicRateLimits.maxRetries,
-              randomDelay: dynamicRateLimits.randomDelay,
-            },
-            variants: campaignDataForModel.messageVariants.map((v) => ({
-              variantName: v.variantName,
-              messagesPerMinute: v.rateLimit.messagesPerMinute,
-            })),
-          }
-        );
 
         const campaign = await CampaignRepository.createCampaign(
           campaignDataForModel,
