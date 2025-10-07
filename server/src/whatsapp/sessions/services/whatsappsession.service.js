@@ -23,6 +23,39 @@ const logger = P({
   level: "silent", // Completely silent to hide decryption noise
 });
 
+// Additional suppression for specific console spam originating from libsignal/Baileys
+const noisyPatterns = [
+  /Closing open session/i,
+  /Closing session: SessionEntry/i,
+  /Failed to decrypt message with any known session/i,
+  /Bad MAC/i,
+];
+
+function wrapConsoleSilencer() {
+  const origLog = console.log;
+  const origError = console.error;
+  const shouldSilence = (args) => {
+    try {
+      const text = args
+        .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
+        .join(" ");
+      return noisyPatterns.some((re) => re.test(text));
+    } catch {
+      return false;
+    }
+  };
+  console.log = (...args) => {
+    if (shouldSilence(args)) return;
+    origLog.apply(console, args);
+  };
+  console.error = (...args) => {
+    if (shouldSilence(args)) return;
+    origError.apply(console, args);
+  };
+}
+
+wrapConsoleSilencer();
+
 // -------- helpers --------
 
 // Avoid showing QR again once we are registered
