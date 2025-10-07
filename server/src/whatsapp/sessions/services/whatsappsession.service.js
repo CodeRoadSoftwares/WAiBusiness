@@ -29,6 +29,7 @@ const noisyPatterns = [
   /Closing session: SessionEntry/i,
   /Failed to decrypt message with any known session/i,
   /Bad MAC/i,
+  /<Buffer\s/i,
 ];
 
 function wrapConsoleSilencer() {
