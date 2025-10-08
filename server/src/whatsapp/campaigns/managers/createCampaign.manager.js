@@ -3,11 +3,13 @@ import { TransactionManager } from "../../../utils/transaction.util.js";
 import {
   getFileUrl,
   cleanupTempFile,
-  saveMediaFileToDisk,
 } from "../../../middlewares/fileUpload.middleware.js";
+import {
+  uploadCampaignMedia,
+  deleteCampaignMedia,
+} from "../../../services/campaignS3.service.js";
 import AudienceFileProcessor from "../../audience/services/audienceFileProcessor.service.js";
 import { AudienceRepository } from "../../audience/repositories/audience.repository.js";
-import fs from "fs";
 import path from "path";
 import { TemplateRepository } from "../../template/repositories/template.repository.js";
 import User from "../../../users/user.model.js";
@@ -170,8 +172,8 @@ const createCampaignManager = async (userId, campaignData, files = {}) => {
                 console.log("Corrected MIME type for XLS file");
               }
 
-              // Save media file to disk only after validation passes
-              const savedFile = await saveMediaFileToDisk(mediaFile);
+              // Upload media file to S3
+              const savedFile = await uploadCampaignMedia(mediaFile);
               savedMediaFile = savedFile; // Track for potential cleanup
 
               campaignDataForModel.messageVariants.push({
@@ -179,6 +181,7 @@ const createCampaignManager = async (userId, campaignData, files = {}) => {
                 type: "media",
                 media: {
                   url: savedFile.url,
+                  s3Key: savedFile.key, // Store S3 key for presigned URL generation
                   type: (() => {
                     const fileName = mediaFile.originalname.toLowerCase();
                     const extension = path.extname(fileName);
@@ -277,8 +280,8 @@ const createCampaignManager = async (userId, campaignData, files = {}) => {
                 console.log("Corrected MIME type for XLS file");
               }
 
-              // Save media file to disk only after validation passes
-              const savedFile = await saveMediaFileToDisk(mediaFile);
+              // Upload media file to S3
+              const savedFile = await uploadCampaignMedia(mediaFile);
               savedMediaFile = savedFile; // Track for potential cleanup
 
               campaignDataForModel.messageVariants.push({
@@ -287,6 +290,7 @@ const createCampaignManager = async (userId, campaignData, files = {}) => {
                 message: campaignData.messageContent,
                 media: {
                   url: savedFile.url,
+                  s3Key: savedFile.key, // Store S3 key for presigned URL generation
                   type: (() => {
                     const fileName = mediaFile.originalname.toLowerCase();
                     const extension = path.extname(fileName);
@@ -472,25 +476,13 @@ const createCampaignManager = async (userId, campaignData, files = {}) => {
     // Clean up saved file if campaign creation failed
     if (savedMediaFile) {
       try {
-        console.log(
-          `Cleaning up saved file due to campaign creation failure: ${savedMediaFile.filename}`
-        );
-
-        // Check if file exists before trying to delete
-        if (fs.existsSync(savedMediaFile.path)) {
-          fs.unlinkSync(savedMediaFile.path);
-          console.log(
-            `Successfully cleaned up file: ${savedMediaFile.filename}`
-          );
-        } else {
-          console.log(`File not found for cleanup: ${savedMediaFile.path}`);
-        }
+        // Delete file from S3
+        await deleteCampaignMedia(savedMediaFile.key);
       } catch (cleanupError) {
         console.error(
-          `Failed to clean up saved file ${savedMediaFile.filename}:`,
+          `Failed to clean up saved file ${savedMediaFile.originalName}:`,
           cleanupError
-        );
-        // Don't throw cleanup errors - the main error is more important
+        );t
       }
     }
 
