@@ -3,12 +3,16 @@ import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
 import { ExpressAdapter } from "@bull-board/express";
 import express from "express";
 import { campaignQueue } from "./src/queue/queues/campaign.queue.js";
+import { directMessageQueue } from "./src/queue/queues/directMessage.queue.js";
 
 const serverAdapter = new ExpressAdapter();
 serverAdapter.setBasePath("/admin/queues");
 
 createBullBoard({
-  queues: [new BullMQAdapter(campaignQueue)],
+  queues: [
+    new BullMQAdapter(campaignQueue),
+    new BullMQAdapter(directMessageQueue),
+  ],
   serverAdapter: serverAdapter,
 });
 

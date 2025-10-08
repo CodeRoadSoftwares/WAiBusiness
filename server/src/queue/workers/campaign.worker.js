@@ -791,6 +791,3 @@ export const getQueueStatus = async () => {
     return null;
   }
 };
-
-// Check queue status every 30 seconds
-setInterval(getQueueStatus, 30000);

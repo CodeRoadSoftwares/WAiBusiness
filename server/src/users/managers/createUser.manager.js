@@ -1,5 +1,6 @@
 import { UserRepository } from "../repositories/user.repository.js";
 import { TransactionManager } from "../../utils/transaction.util.js";
+import crypto from "crypto";
 const createUserManager = async (userData) => {
   try {
     // Execute all operations within a single transaction
@@ -27,6 +28,7 @@ const createUserManager = async (userData) => {
         // �� Transform password to passwordHash before creating user
         const userDataForModel = {
           ...userData,
+          apiKey: crypto.randomBytes(32).toString("hex"),
           passwordHash: userData.password, // Transform password to passwordHash
         };
         delete userDataForModel.password; // Remove the original password field

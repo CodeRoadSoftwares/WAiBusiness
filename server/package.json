@@ -8,7 +8,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "node --watch index.js"
+    "dev": "node --watch index.js",
+    "dashboard": "node bullmq-dashboard.js"
   },
   "dependencies": {
     "@bull-board/api": "^6.13.0",
@@ -29,6 +30,7 @@
     "qrcode": "^1.5.4",
     "sharp": "^0.32.6",
     "socket.io": "^4.8.1",
+    "uuid": "^13.0.0",
     "xlsx": "^0.18.5"
   }
 }
