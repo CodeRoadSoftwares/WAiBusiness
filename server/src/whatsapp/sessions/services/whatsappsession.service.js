@@ -25,6 +25,7 @@ const logger = P({
 
 // Additional suppression for specific console spam originating from libsignal/Baileys
 const noisyPatterns = [
+  /Closing stale open session/i,
   /Closing open session/i,
   /Closing session: SessionEntry/i,
   /Failed to decrypt message with any known session/i,

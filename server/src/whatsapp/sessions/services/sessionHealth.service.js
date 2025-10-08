@@ -179,8 +179,13 @@ export class SessionHealthService {
 
     try {
       await campaignQueue.add(job.name, job.data, {
-        delay: delay,
-        attempts: job.opts.attempts - job.attempts + 1,
+        delay: Math.max(0, Number(delay) || 0),
+        attempts: Math.max(
+          1,
+          Number.isFinite(Number((job.opts.attempts ?? 3) - job.attempts + 1))
+            ? (job.opts.attempts ?? 3) - job.attempts + 1
+            : 3
+        ),
         backoff: { type: "exponential", delay: 5000 },
         removeOnComplete: false,
         removeOnFail: false,
