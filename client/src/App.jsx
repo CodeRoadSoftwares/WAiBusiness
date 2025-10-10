@@ -5,7 +5,7 @@ import Login from "./features/auth/login/Login";
 import AuthGuard from "./features/auth/components/AuthGuard";
 import Main from "./shared/components/layout/Main";
 import Register from "./features/users/register/register";
-import Dashboard from "./features/dashboard/dashboard";
+import Dashboard from "./features/dashboard/Dashboard";
 import NotFound from "./NotFound";
 import LinkDevice from "./features/link-device/LinkDevice";
 import CreateCampaign from "./features/campaign/CreateCampaign";
