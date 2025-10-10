@@ -1,9 +1,9 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { StoreProvider } from "./app/providers/StoreProvider";
-import Login from "./features/auth/login/login";
-import Register from "./features/users/register/register";
-import Dashboard from "./features/dashboard/dashboard";
+import Login from "./features/auth/login/Login";
+import Register from "./features/users/register/Register";
+import Dashboard from "./features/dashboard/Dashboard";
 import AuthGuard from "./features/auth/components/AuthGuard";
 import Main from "./shared/components/layout/Main";
 import NotFound from "./NotFound";
