@@ -10,6 +10,7 @@ import {
   useLogoutMutation,
 } from "../../../features/auth/api/authApi";
 import { MdLogout } from "react-icons/md";
+import { FaRegImage } from "react-icons/fa";
 
 const linkBase =
   "group relative pl-4 px-3 py-2 rounded-md font-medium flex items-center gap-3 transition-colors text-lg";
@@ -34,6 +35,11 @@ const navItems = [
     to: "/chats",
     label: "Chats",
     icon: <MdChat />,
+  },
+  {
+    to: "/media",
+    label: "Media",
+    icon: <FaRegImage />,
   },
 
   { to: "/settings", label: "Settings", icon: <IoMdSettings /> },
