@@ -6,7 +6,7 @@ function Spinner({
   theme = "brand",
   fullscreen = false,
   container = false, // New prop for container-relative overlay
-  animation = "default", // 'default' | 'pulse'
+  animation = "pulse", // 'default' | 'pulse'
   className = "",
   style = {},
   text,
