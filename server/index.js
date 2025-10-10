@@ -10,6 +10,8 @@ import AuthRoutes from "./src/auth/auth.routes.js";
 import WhatsappRoutes from "./src/whatsapp/whatsapp.routes.js";
 import AudienceRoutes from "./src/whatsapp/audience/audience.routes.js";
 import TemplateRoutes from "./src/whatsapp/template/template.route.js";
+import UploadRoutes from "./src/upload/routes/upload.route.js";
+import MediaRoutes from "./src/whatsapp/media/media.route.js";
 import DirectMessageRoutes from "./src/whatsapp/messages/routes/directMessage.routes.js";
 import PresenceDebugRoutes from "./src/whatsapp/sessions/routes/presenceDebug.routes.js";
 import createSocketServer from "./src/realtime/socket.js";
@@ -50,6 +52,8 @@ app.use("/api/whatsapp", WhatsappRoutes);
 app.use("/api/template", TemplateRoutes);
 app.use("/api/messages", DirectMessageRoutes);
 app.use("/api/debug", PresenceDebugRoutes);
+app.use("/api/upload", UploadRoutes);
+app.use("/api/media", MediaRoutes);
 
 const PORT = process.env.PORT || 4000;
 const server = http.createServer(app);
