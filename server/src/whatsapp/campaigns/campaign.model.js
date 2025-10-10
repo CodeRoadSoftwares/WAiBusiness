@@ -30,6 +30,7 @@ const RecipientSchema = new Schema(
 const MediaSchema = new Schema(
   {
     url: { type: String },
+    s3Key: { type: String },
     type: { type: String, enum: ["image", "video", "audio", "document"] },
     caption: { type: String },
     fileName: { type: String },

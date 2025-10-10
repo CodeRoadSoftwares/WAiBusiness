@@ -6,6 +6,7 @@ import {
   ensureWhatsappClient,
 } from "../../sessions/services/whatsappsession.service.js";
 import { presenceManager } from "../../sessions/services/whatsappPresenceManager.service.js";
+import { getPresignedUrl } from "../../../services/campaignS3.service.js";
 
 // Helper: substitute variables in text using {{variable_name}} syntax
 function substituteVariables(text, variables = {}) {
@@ -214,7 +215,28 @@ async function sendMessageWithoutPresence(
         break;
 
       case "media":
-        const mediaPath = resolveMediaPath(message.media.url);
+        let mediaPath;
+
+        // Check if we have an S3 key for presigned URL generation
+        if (message.media.s3Key) {
+          mediaPath = getPresignedUrl(message.media.s3Key);
+        } else if (
+          message.media.url &&
+          message.media.url.includes("s3.amazonaws.com")
+        ) {
+          // Handle existing S3 URLs by extracting the key and generating presigned URL
+          const url = message.media.url;
+          const keyMatch = url.match(/s3\.amazonaws\.com\/([^?]+)/);
+          if (keyMatch) {
+            const s3Key = keyMatch[1];
+            mediaPath = getPresignedUrl(s3Key);
+          } else {
+            mediaPath = resolveMediaPath(message.media.url);
+          }
+        } else {
+          mediaPath = resolveMediaPath(message.media.url);
+        }
+
         if (!mediaPath) {
           throw new Error("Media file not found or invalid path.");
         }
@@ -278,7 +300,28 @@ async function sendMessageWithoutPresence(
         break;
 
       case "mixed":
-        const mixedMediaPath = resolveMediaPath(message.media.url);
+        let mixedMediaPath;
+
+        // Check if we have an S3 key for presigned URL generation
+        if (message.media.s3Key) {
+          mixedMediaPath = getPresignedUrl(message.media.s3Key);
+        } else if (
+          message.media.url &&
+          message.media.url.includes("s3.amazonaws.com")
+        ) {
+          // Handle existing S3 URLs by extracting the key and generating presigned URL
+          const url = message.media.url;
+          const keyMatch = url.match(/s3\.amazonaws\.com\/([^?]+)/);
+          if (keyMatch) {
+            const s3Key = keyMatch[1];
+            mixedMediaPath = getPresignedUrl(s3Key);
+          } else {
+            mixedMediaPath = resolveMediaPath(message.media.url);
+          }
+        } else {
+          mixedMediaPath = resolveMediaPath(message.media.url);
+        }
+
         if (!mixedMediaPath) {
           throw new Error("Media file not found or invalid path.");
         }

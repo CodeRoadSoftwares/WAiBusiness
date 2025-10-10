@@ -6,6 +6,7 @@ import { whatsappSessionApi } from "../../features/link-device/api/whatsappSessi
 import { campaignApi } from "../../features/campaign/api/campaignApi";
 import { audienceApi } from "../../features/audience/api/audienceApi";
 import { templateApi } from "../../features/template/api/templateApi";
+import { mediaApi } from "../../features/media/api/mediaApi";
 
 export const store = configureStore({
   reducer: {
@@ -15,6 +16,7 @@ export const store = configureStore({
     [campaignApi.reducerPath]: campaignApi.reducer,
     [audienceApi.reducerPath]: audienceApi.reducer,
     [templateApi.reducerPath]: templateApi.reducer,
+    [mediaApi.reducerPath]: mediaApi.reducer,
   },
 
   middleware: (getDefaultMiddleware) =>
@@ -24,7 +26,8 @@ export const store = configureStore({
       whatsappSessionApi.middleware,
       campaignApi.middleware,
       audienceApi.middleware,
-      templateApi.middleware
+      templateApi.middleware,
+      mediaApi.middleware
     ),
 });
 
