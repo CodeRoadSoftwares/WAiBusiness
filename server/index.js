@@ -27,7 +27,11 @@ const app = express();
 // Middleware
 app.use(
   cors({
-    origin: ["http://localhost:5173"],
+    origin: [
+      "http://localhost:5173",
+      "https://waibusiness.vercel.app",
+      "https://app.waibusiness.com",
+    ],
     credentials: true,
   })
 );
