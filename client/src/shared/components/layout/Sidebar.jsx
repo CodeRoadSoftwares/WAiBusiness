@@ -1,7 +1,7 @@
 import React from "react";
 import { TbLayoutDashboardFilled } from "react-icons/tb";
 import { BiQrScan } from "react-icons/bi";
-import { IoMdSettings } from "react-icons/io";
+import { IoIosHelpBuoy, IoMdSettings } from "react-icons/io";
 import { MdChat } from "react-icons/md";
 import { MdCampaign } from "react-icons/md";
 import { NavLink, useNavigate, Link } from "react-router-dom";
@@ -11,7 +11,7 @@ import {
 } from "../../../features/auth/api/authApi";
 import { MdLogout } from "react-icons/md";
 import { FaFileAlt, FaRegImage, FaUserFriends } from "react-icons/fa";
-import { FaUserGroup } from "react-icons/fa6";
+import { FaFileLines, FaUserGroup } from "react-icons/fa6";
 import { HiUsers } from "react-icons/hi";
 
 const linkBase =
@@ -41,7 +41,7 @@ const navItems = [
   {
     to: "/campaign/templates",
     label: "Templates",
-    icon: <FaFileAlt size={24}/>,
+    icon: <FaFileLines size={24} />,
   },
   {
     to: "/chats",
@@ -53,7 +53,11 @@ const navItems = [
     label: "Media",
     icon: <FaRegImage />,
   },
-
+  {
+    to: "/docs",
+    label: "API Docs",
+    icon: <IoIosHelpBuoy />,
+  },
   { to: "/settings", label: "Settings", icon: <IoMdSettings /> },
 ];
 

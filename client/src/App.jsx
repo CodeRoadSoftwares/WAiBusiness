@@ -19,6 +19,7 @@ import Settings from "./features/settings/Settings";
 import Profile from "./features/profile/Profile";
 import Audiences from "./features/audience/Audiences";
 import Templates from "./features/template/Templates";
+import ApiDocumentation from "./components/ApiDocumentation";
 
 function App() {
   return (
@@ -29,7 +30,7 @@ function App() {
             path="/"
             element={
               <AuthGuard mode="private">
-                <Main withLayout={false}>
+                <Main>
                   <Dashboard />
                 </Main>
               </AuthGuard>
@@ -181,6 +182,16 @@ function App() {
               <AuthGuard mode="private">
                 <Main>
                   <Profile />
+                </Main>
+              </AuthGuard>
+            }
+          />
+          <Route
+            path="/docs"
+            element={
+              <AuthGuard mode="private">
+                <Main>
+                  <ApiDocumentation />
                 </Main>
               </AuthGuard>
             }
