@@ -49,15 +49,15 @@ app.get("/health", (_req, res) => {
 });
 
 // mount routes from src/* when ready
-app.use("/api/users", UserRoutes);
-app.use("/api/auth", AuthRoutes);
-app.use("/api/audience", AudienceRoutes);
-app.use("/api/whatsapp", WhatsappRoutes);
-app.use("/api/template", TemplateRoutes);
-app.use("/api/messages", DirectMessageRoutes);
-app.use("/api/debug", PresenceDebugRoutes);
-app.use("/api/upload", UploadRoutes);
-app.use("/api/media", MediaRoutes);
+app.use("/users", UserRoutes);
+app.use("/auth", AuthRoutes);
+app.use("/audience", AudienceRoutes);
+app.use("/whatsapp", WhatsappRoutes);
+app.use("/template", TemplateRoutes);
+app.use("/messages", DirectMessageRoutes);
+app.use("/debug", PresenceDebugRoutes);
+app.use("/upload", UploadRoutes);
+app.use("/media", MediaRoutes);
 
 const PORT = process.env.PORT || 4000;
 const server = http.createServer(app);
