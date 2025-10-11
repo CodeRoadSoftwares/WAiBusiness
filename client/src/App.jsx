@@ -14,6 +14,11 @@ import CreateAudience from "./features/audience/CreateAudience";
 import CreateTemplate from "./features/template/CreateTemplate";
 import Campaigns from "./features/campaign/Campaigns";
 import Media from "./features/media/Media";
+import Chats from "./features/chats/Chats";
+import Settings from "./features/settings/Settings";
+import Profile from "./features/profile/Profile";
+import Audiences from "./features/audience/Audiences";
+import Templates from "./features/template/Templates";
 
 function App() {
   return (
@@ -111,6 +116,26 @@ function App() {
             }
           />
           <Route
+            path="/campaign/audiences"
+            element={
+              <AuthGuard mode="private">
+                <Main>
+                  <Audiences />
+                </Main>
+              </AuthGuard>
+            }
+          />
+          <Route
+            path="/campaign/templates"
+            element={
+              <AuthGuard mode="private">
+                <Main>
+                  <Templates />
+                </Main>
+              </AuthGuard>
+            }
+          />
+          <Route
             path="/campaign/create-template"
             element={
               <AuthGuard mode="private">
@@ -126,6 +151,36 @@ function App() {
               <AuthGuard mode="private">
                 <Main>
                   <CreateCampaign />
+                </Main>
+              </AuthGuard>
+            }
+          />
+          <Route
+            path="/chats"
+            element={
+              <AuthGuard mode="private">
+                <Main>
+                  <Chats />
+                </Main>
+              </AuthGuard>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <AuthGuard mode="private">
+                <Main>
+                  <Settings />
+                </Main>
+              </AuthGuard>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <AuthGuard mode="private">
+                <Main>
+                  <Profile />
                 </Main>
               </AuthGuard>
             }
