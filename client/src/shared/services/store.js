@@ -7,6 +7,7 @@ import { campaignApi } from "../../features/campaign/api/campaignApi";
 import { audienceApi } from "../../features/audience/api/audienceApi";
 import { templateApi } from "../../features/template/api/templateApi";
 import { mediaApi } from "../../features/media/api/mediaApi";
+import { profileApi } from "../../features/profile/api/profileApi";
 
 export const store = configureStore({
   reducer: {
@@ -17,6 +18,7 @@ export const store = configureStore({
     [audienceApi.reducerPath]: audienceApi.reducer,
     [templateApi.reducerPath]: templateApi.reducer,
     [mediaApi.reducerPath]: mediaApi.reducer,
+    [profileApi.reducerPath]: profileApi.reducer,
   },
 
   middleware: (getDefaultMiddleware) =>
@@ -27,7 +29,8 @@ export const store = configureStore({
       campaignApi.middleware,
       audienceApi.middleware,
       templateApi.middleware,
-      mediaApi.middleware
+      mediaApi.middleware,
+      profileApi.middleware
     ),
 });
 
