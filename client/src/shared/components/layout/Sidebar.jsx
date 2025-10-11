@@ -10,7 +10,9 @@ import {
   useLogoutMutation,
 } from "../../../features/auth/api/authApi";
 import { MdLogout } from "react-icons/md";
-import { FaRegImage } from "react-icons/fa";
+import { FaFileAlt, FaRegImage, FaUserFriends } from "react-icons/fa";
+import { FaUserGroup } from "react-icons/fa6";
+import { HiUsers } from "react-icons/hi";
 
 const linkBase =
   "group relative pl-4 px-3 py-2 rounded-md font-medium flex items-center gap-3 transition-colors text-lg";
@@ -30,6 +32,16 @@ const navItems = [
     to: "/campaign",
     label: "Campaign",
     icon: <MdCampaign />,
+  },
+  {
+    to: "/campaign/audiences",
+    label: "Audiences",
+    icon: <FaUserFriends size={24} />,
+  },
+  {
+    to: "/campaign/templates",
+    label: "Templates",
+    icon: <FaFileAlt size={24}/>,
   },
   {
     to: "/chats",
