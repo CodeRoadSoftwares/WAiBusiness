@@ -1,0 +1,995 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "WhatsApp Business API",
+    "description": "Unofficial WhatsApp message sender API for your products.\n\n## Authentication\nInclude your API key in the `X-API-Key` header.\n\n## Rate Limits\n100 requests per minute per API key.\n\n## Base URL\nAll endpoints are prefixed with `/api/messages`",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Support Team",
+      "email": "support@waibusiness.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.waibusiness.com/messages",
+      "description": "API Base URL"
+    }
+  ],
+  "paths": {
+    "/m": {
+      "post": {
+        "summary": "Send a direct message",
+        "description": "Send a text, media, or mixed message to a WhatsApp number",
+        "operationId": "sendDirectMessage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DirectMessageRequest"
+              },
+              "examples": {
+                "text_message": {
+                  "summary": "Text Message",
+                  "value": {
+                    "phone": "+1234567890",
+                    "type": "text",
+                    "message": "Hello! This is a test message.",
+                    "name": "John Doe",
+                    "messageType": "notification",
+                    "priority": "normal"
+                  }
+                },
+                "media_message": {
+                  "summary": "Media Message",
+                  "value": {
+                    "phone": "+1234567890",
+                    "type": "media",
+                    "media": "https://example.com/image.jpg",
+                    "mediaType": "image",
+                    "caption": "Check out this image!",
+                    "name": "John Doe"
+                  }
+                },
+                "mixed_message": {
+                  "summary": "Mixed Message",
+                  "value": {
+                    "phone": "+1234567890",
+                    "type": "mixed",
+                    "message": "Here's the document you requested:",
+                    "media": {
+                      "url": "https://example.com/document.pdf",
+                      "type": "document",
+                      "caption": "Important Document",
+                      "fileName": "document.pdf",
+                      "mimeType": "application/pdf"
+                    },
+                    "name": "John Doe"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Message queued for sending",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - invalid or missing API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/m/{phone}/t/{templateId}": {
+      "post": {
+        "summary": "Send a template message",
+        "description": "Send a pre-approved template message to a WhatsApp number",
+        "operationId": "sendTemplateMessage",
+        "parameters": [
+          {
+            "name": "phone",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "+1234567890"
+          },
+          {
+            "name": "templateId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "welcome_template"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemplateMessageRequest"
+              },
+              "example": {
+                "variables": {
+                  "name": "John Doe",
+                  "company": "Acme Corp"
+                },
+                "messageType": "notification",
+                "priority": "normal"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Template message queued for sending",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - invalid or missing API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/m/{messageId}/status": {
+      "get": {
+        "summary": "Get message status",
+        "description": "Retrieve the delivery status of a sent message",
+        "operationId": "getMessageStatus",
+        "parameters": [
+          {
+            "name": "messageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "msg_123456789"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Message status retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageStatusResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Message not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - invalid or missing API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/m/history": {
+      "get": {
+        "summary": "Get message history",
+        "description": "Retrieve paginated message history with optional filters",
+        "operationId": "getMessageHistory",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "description": "Page number for pagination"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "description": "Number of messages per page (max 100)"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["pending", "sent", "delivered", "read", "failed"]
+            },
+            "description": "Filter by message status"
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["text", "media", "mixed", "template"]
+            },
+            "description": "Filter by message type"
+          },
+          {
+            "name": "phone",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by phone number"
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Filter messages from this date (YYYY-MM-DD)"
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Filter messages until this date (YYYY-MM-DD)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Message history retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageHistoryResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - invalid or missing API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/m/stats": {
+      "get": {
+        "summary": "Get message statistics",
+        "description": "Retrieve overall message statistics for a date range",
+        "operationId": "getMessageStats",
+        "parameters": [
+          {
+            "name": "startDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Start date for statistics (YYYY-MM-DD)"
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "End date for statistics (YYYY-MM-DD)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Message statistics retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageStatsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - invalid or missing API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/m/stats/by-type": {
+      "get": {
+        "summary": "Get message statistics by type",
+        "description": "Retrieve message statistics broken down by message type",
+        "operationId": "getMessageStatsByType",
+        "parameters": [
+          {
+            "name": "startDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Start date for statistics (YYYY-MM-DD)"
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "End date for statistics (YYYY-MM-DD)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Message statistics by type retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageStatsByTypeResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - invalid or missing API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/m/bulk": {
+      "post": {
+        "summary": "Send bulk messages",
+        "description": "Send multiple messages in a single request (max 100 messages)",
+        "operationId": "sendBulkMessages",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkMessagesRequest"
+              },
+              "example": {
+                "messages": [
+                  {
+                    "phone": "+1234567890",
+                    "type": "text",
+                    "message": "Hello John!",
+                    "name": "John Doe"
+                  },
+                  {
+                    "phone": "+1234567891",
+                    "type": "text",
+                    "message": "Hello Jane!",
+                    "name": "Jane Smith"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Bulk messages processed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkMessagesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - invalid or missing API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "DirectMessageRequest": {
+        "type": "object",
+        "required": ["phone", "type"],
+        "properties": {
+          "phone": {
+            "type": "string",
+            "pattern": "^\\+?[1-9]\\d{1,14}$",
+            "description": "Phone number with country code",
+            "example": "+1234567890"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["text", "media", "mixed"],
+            "description": "Type of message to send"
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Text content of the message (required for text and mixed types)"
+          },
+          "media": {
+            "oneOf": [
+              {
+                "type": "string",
+                "format": "uri",
+                "description": "URL to media file"
+              },
+              {
+                "$ref": "#/components/schemas/MediaObject"
+              }
+            ],
+            "description": "Media content (required for media and mixed types)"
+          },
+          "mediaType": {
+            "type": "string",
+            "enum": ["image", "video", "audio", "document"],
+            "description": "Type of media (auto-detected from URL if not provided)"
+          },
+          "caption": {
+            "type": "string",
+            "maxLength": 1024,
+            "description": "Caption for media content"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "Recipient's name"
+          },
+          "messageType": {
+            "type": "string",
+            "enum": [
+              "notification",
+              "transactional",
+              "reminder",
+              "promotional",
+              "alert",
+              "update"
+            ],
+            "default": "notification",
+            "description": "Category of the message"
+          },
+          "priority": {
+            "type": "string",
+            "enum": ["low", "normal", "high", "urgent"],
+            "default": "normal",
+            "description": "Priority level of the message"
+          }
+        }
+      },
+      "MediaObject": {
+        "type": "object",
+        "required": ["url", "type"],
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL to the media file"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["image", "video", "audio", "document"],
+            "description": "Type of media"
+          },
+          "caption": {
+            "type": "string",
+            "maxLength": 1024,
+            "description": "Caption for the media"
+          },
+          "fileName": {
+            "type": "string",
+            "description": "Original filename"
+          },
+          "mimeType": {
+            "type": "string",
+            "description": "MIME type of the media"
+          }
+        }
+      },
+      "TemplateMessageRequest": {
+        "type": "object",
+        "properties": {
+          "variables": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "maxProperties": 10,
+            "description": "Template variables as key-value pairs"
+          },
+          "messageType": {
+            "type": "string",
+            "enum": [
+              "notification",
+              "transactional",
+              "reminder",
+              "promotional",
+              "alert",
+              "update"
+            ],
+            "default": "notification",
+            "description": "Category of the message"
+          },
+          "priority": {
+            "type": "string",
+            "enum": ["low", "normal", "high", "urgent"],
+            "default": "normal",
+            "description": "Priority level of the message"
+          }
+        }
+      },
+      "BulkMessagesRequest": {
+        "type": "object",
+        "required": ["messages"],
+        "properties": {
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DirectMessageRequest"
+            },
+            "minItems": 1,
+            "maxItems": 100,
+            "description": "Array of messages to send"
+          }
+        }
+      },
+      "MessageResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "message": {
+            "type": "string",
+            "example": "Message queued for sending"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "messageId": {
+                "type": "string",
+                "example": "msg_123456789"
+              },
+              "status": {
+                "type": "string",
+                "example": "pending"
+              },
+              "requestId": {
+                "type": "string",
+                "example": "req_123456789"
+              }
+            }
+          }
+        }
+      },
+      "MessageStatusResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "messageId": {
+                "type": "string",
+                "example": "msg_123456789"
+              },
+              "status": {
+                "type": "string",
+                "enum": ["pending", "sent", "delivered", "read", "failed"],
+                "example": "delivered"
+              },
+              "timestamp": {
+                "type": "string",
+                "format": "date-time",
+                "example": "2024-01-15T10:30:00Z"
+              },
+              "phone": {
+                "type": "string",
+                "example": "+1234567890"
+              },
+              "type": {
+                "type": "string",
+                "example": "text"
+              }
+            }
+          }
+        }
+      },
+      "MessageHistoryResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "messages": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/MessageHistoryItem"
+                }
+              },
+              "pagination": {
+                "$ref": "#/components/schemas/PaginationInfo"
+              }
+            }
+          }
+        }
+      },
+      "MessageHistoryItem": {
+        "type": "object",
+        "properties": {
+          "messageId": {
+            "type": "string",
+            "example": "msg_123456789"
+          },
+          "phone": {
+            "type": "string",
+            "example": "+1234567890"
+          },
+          "name": {
+            "type": "string",
+            "example": "John Doe"
+          },
+          "type": {
+            "type": "string",
+            "example": "text"
+          },
+          "status": {
+            "type": "string",
+            "example": "delivered"
+          },
+          "message": {
+            "type": "string",
+            "example": "Hello! This is a test message."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2024-01-15T10:30:00Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2024-01-15T10:30:05Z"
+          }
+        }
+      },
+      "MessageStatsResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "total": {
+                "type": "integer",
+                "example": 1500
+              },
+              "sent": {
+                "type": "integer",
+                "example": 1200
+              },
+              "delivered": {
+                "type": "integer",
+                "example": 1150
+              },
+              "read": {
+                "type": "integer",
+                "example": 800
+              },
+              "failed": {
+                "type": "integer",
+                "example": 50
+              },
+              "pending": {
+                "type": "integer",
+                "example": 100
+              }
+            }
+          }
+        }
+      },
+      "MessageStatsByTypeResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "text": {
+                "$ref": "#/components/schemas/MessageTypeStats"
+              },
+              "media": {
+                "$ref": "#/components/schemas/MessageTypeStats"
+              },
+              "mixed": {
+                "$ref": "#/components/schemas/MessageTypeStats"
+              },
+              "template": {
+                "$ref": "#/components/schemas/MessageTypeStats"
+              }
+            }
+          }
+        }
+      },
+      "MessageTypeStats": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "example": 500
+          },
+          "sent": {
+            "type": "integer",
+            "example": 450
+          },
+          "delivered": {
+            "type": "integer",
+            "example": 420
+          },
+          "read": {
+            "type": "integer",
+            "example": 300
+          },
+          "failed": {
+            "type": "integer",
+            "example": 20
+          }
+        }
+      },
+      "BulkMessagesResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "message": {
+            "type": "string",
+            "example": "Processed 2 messages"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "results": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "index": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "messageId": {
+                      "type": "string",
+                      "example": "msg_123456789"
+                    },
+                    "status": {
+                      "type": "string",
+                      "example": "pending"
+                    }
+                  }
+                }
+              },
+              "errors": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "index": {
+                      "type": "integer",
+                      "example": 1
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Invalid phone number format"
+                    }
+                  }
+                }
+              },
+              "totalProcessed": {
+                "type": "integer",
+                "example": 1
+              },
+              "totalErrors": {
+                "type": "integer",
+                "example": 1
+              }
+            }
+          }
+        }
+      },
+      "PaginationInfo": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "example": 1
+          },
+          "limit": {
+            "type": "integer",
+            "example": 50
+          },
+          "total": {
+            "type": "integer",
+            "example": 1500
+          },
+          "pages": {
+            "type": "integer",
+            "example": 30
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "error": {
+            "type": "string",
+            "example": "Invalid phone number format"
+          },
+          "code": {
+            "type": "string",
+            "example": "VALIDATION_ERROR"
+          },
+          "details": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "Phone number is required",
+              "Invalid phone number format"
+            ]
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+        "description": "Your API key obtained from the dashboard"
+      }
+    }
+  },
+  "security": [
+    {
+      "ApiKeyAuth": []
+    }
+  ]
+}
