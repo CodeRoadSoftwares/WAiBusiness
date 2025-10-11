@@ -1,8 +1,8 @@
 import React from "react";
 import ComingSoon from "../../shared/components/ComingSoon";
 
-function Dashboard() {
-  return <ComingSoon title="Dashboard" />;
+function Chats() {
+  return <ComingSoon title="Chats" />;
 }
 
-export default Dashboard;
+export default Chats;
